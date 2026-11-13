@@ -57,6 +57,10 @@ uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
 - 对 Python 项目最熟；R 与 Julia 支持各自的依赖文件、安装命令、脚本与随机种子；其他语言支持较少。
 - 部分判断依据文字（脚本的名字、参数、链接附近的词）。名为 `run.py`、也没有 `--is_training`/`--do_train` 之类参数的训练脚本，若 README 命令没说明，就不会被认作训练代码。
 
+## 属于 research-kit
+
+这是 13 个开源科研工具之一，覆盖从读论文到论文发表之后。全部工具按科研流程的介绍，以及安装它们技能的 Claude Code 插件市场，见 [research-kit](https://github.com/zch6a/research-kit) · [网站](https://zch6a.github.io/research-kit/)。
+
 ## 许可证
 
 MIT。所依据的清单来自 Papers with Code（MIT 许可）。

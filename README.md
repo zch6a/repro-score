@@ -161,6 +161,12 @@ none of its code.
 [exp-tables](https://github.com/zch6a/exp-tables) makes results tables with significance ·
 [gpu-budget](https://github.com/zch6a/gpu-budget) works out GPU memory, time and cost.
 
+## Part of research-kit
+
+One of thirteen open research tools, from reading papers to after publication. All of them, in the order of
+the work, with one Claude Code plugin marketplace for their skills: [research-kit](https://github.com/zch6a/research-kit)
+· [site](https://zch6a.github.io/research-kit/).
+
 ## License
 
 MIT. The checklist it follows is Papers with Code's (MIT licensed).
