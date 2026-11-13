@@ -1,0 +1,48 @@
+name: repro-score
+description: How well this research code repository lets someone reproduce its paper, read from its files (nothing is run). The report goes to the job summary.
+author: zch6a
+branding:
+  icon: check-circle
+  color: green
+inputs:
+  path:
+    description: The repository's folder, relative to the workspace.
+    default: "."
+  min-score:
+    description: Fail the step when the score is under this (0 never fails).
+    default: "0"
+  badge:
+    description: Also write the score as an SVG badge to this file (for example docs/repro-score.svg); empty for none.
+    default: ""
+outputs:
+  score:
+    description: The score, out of 100.
+    value: ${{ steps.score.outputs.score }}
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - id: score
+      shell: bash
+      # Inputs reach the shell as environment variables, never as code. The tool is installed from this action's own
+      # files (its version is the one the workflow pinned), and it only reads the repository.
+      env:
+        REPO_PATH: ${{ inputs.path }}
+        MIN_SCORE: ${{ inputs.min-score }}
+        BADGE: ${{ inputs.badge }}
+        TOOL: ${{ github.action_path }}
+      run: |
+        case "$MIN_SCORE" in ''|*[!0-9]*) echo "min-score must be a whole number, not: $MIN_SCORE" >&2; exit 2 ;; esac
+        uvx --from "$TOOL" repro-score "$REPO_PATH" --markdown >> "$GITHUB_STEP_SUMMARY"
+        uvx --from "$TOOL" repro-score "$REPO_PATH" --json > "$RUNNER_TEMP/repro-score.json"
+        score="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["score"])' "$RUNNER_TEMP/repro-score.json")"
+        echo "score=$score" >> "$GITHUB_OUTPUT"
+        if [ -n "$BADGE" ]; then
+          mkdir -p "$(dirname "$BADGE")"
+          uvx --from "$TOOL" repro-score "$REPO_PATH" --brief --badge "$BADGE" > /dev/null
+        fi
+        echo "repro-score: $score/100"
+        if [ "$score" -lt "$MIN_SCORE" ]; then
+          echo "::error::repro-score $score is under the minimum of $MIN_SCORE"
+          exit 1
+        fi

@@ -1,0 +1,10 @@
+{
+  "name": "repro-score",
+  "description": "How well a research code repository lets someone reproduce its paper: a score, item by item with evidence, read from the files without running anything.",
+  "version": "0.1.0",
+  "author": { "name": "zch6a" },
+  "homepage": "https://github.com/zch6a/repro-score",
+  "repository": "https://github.com/zch6a/repro-score",
+  "license": "MIT",
+  "keywords": ["research", "reproducibility", "machine-learning", "checklist", "paper", "claude-code"]
+}
