@@ -66,3 +66,19 @@ def test_links_inside_are_not_followed(tmp_path: Path) -> None:
 @pytest.mark.parametrize(("score", "fill"), [(95, "#4c1"), (70, "#97ca00"), (55, "#dfb317"), (40, "#fe7d37"), (10, "#e05d44")])
 def test_badge_colours(score: int, fill: str) -> None:
     assert colour(score) == fill and fill in badge(score)
+
+
+def test_lists_folders_and_output_files(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    empty_list = tmp_path / "l.txt"
+    empty_list.write_text("# nothing yet\n", encoding="utf-8")
+    assert cli.main(["--list", str(empty_list)]) == 2
+    assert "no repositories listed" in capsys.readouterr().err
+    (tmp_path / "empty").mkdir()
+    assert cli.main([str(tmp_path / "empty"), "--brief"]) == 0
+    assert "(an empty folder: nothing to read)" in capsys.readouterr().out
+    r = repo(tmp_path / "r")
+    assert cli.main([str(r), "--brief", "--badge", str(tmp_path / "new" / "dir" / "b.svg")]) == 0
+    assert (tmp_path / "new" / "dir" / "b.svg").is_file()
+    capsys.readouterr()
+    assert cli.main(["github:only-owner"]) == 2
+    assert "(github:owner/repo)" in capsys.readouterr().err

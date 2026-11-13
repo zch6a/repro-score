@@ -114,3 +114,23 @@ Tests: 78. ruff, ruff format, mypy clean.
 
 Next: polishing round 3 (the Action used from another repository's workflow by its tag after the release; CLI and
 JSON review; packaging check of the wheel).
+### 2026-11-13 — polishing round 3
+
+**CLI, tried on the awkward cases** (an empty folder, a file, `github:only-owner`, a missing or empty `--list`, bad
+`--min-score`, a badge in a folder that does not exist, `--json`, `--markdown`):
+
+- `--list` with no repositories in it scored the current folder instead: now an error (exit 2).
+- A badge (or `--summary-file`, `--json-file`) in a folder that does not exist crashed with a traceback (exit 1, which
+  reads as "under the minimum"): the folder is made.
+- An empty folder scored 0/100 without saying why: the first line says it is empty (and the JSON has `"empty"`).
+- A mistyped GitHub target (`github:only-owner`) now says what form it takes.
+- The Markdown report's heading names the repository (a pull request comment for several says which is which).
+
+**Packaging**: wheel and sdist built and listed (the wheel has the package and `py.typed` only; the sdist the tests,
+example, Action and workflows); installed into a clean Python 3.10 environment, `repro-score --version`, the example
+(65/100) and `import repro_score` work.
+
+Tests: 79. ruff, ruff format, mypy clean.
+
+Next: polishing round 4 (more research repositories from a venue's list, end to end with `--list --csv`; the README's
+claims read against the code).

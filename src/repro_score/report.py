@@ -25,6 +25,7 @@ class Report:
     links: list[Link] | None = None  # None: not checked (--check-links not given)
     links_total: int = 0  # how many links there were to check (only the first MAX_LINKS are)
     error: str = ""  # a repository that could not be read (a download that failed)
+    empty: bool = False  # no files at all
 
     @property
     def score(self) -> int:
@@ -51,7 +52,7 @@ class Report:
     def text(self, evidence: bool = True) -> str:
         if self.error:
             return f"repro-score: {self.name}: {self.error}"
-        lines = [f"repro-score: {self.name}: {self.score}/100"]
+        lines = [f"repro-score: {self.name}: {self.score}/100" + ("  (an empty folder: nothing to read)" if self.empty else "")]
         if self.truncated:
             lines.append("  (more than 50,000 files: only the first were read)")
         for _, title, got, out_of, items in self.sections():
@@ -86,7 +87,7 @@ class Report:
     def markdown(self) -> str:
         if self.error:
             return f"### repro-score: {self.name}\n\n{self.error}"
-        lines = [f"### repro-score: {self.score}/100", "", "| | Item | Points | Evidence or what to add |", "|---|---|---|---|"]
+        lines = [f"### repro-score: {self.name}: {self.score}/100", "", "| | Item | Points | Evidence or what to add |", "|---|---|---|---|"]
         for _, title, _got, out_of, items in self.sections():
             if not out_of:
                 continue
@@ -112,6 +113,7 @@ class Report:
             "sections": [{"section": key, "title": title, "points": got, "max": out_of} for key, title, got, out_of, _ in self.sections()],
             "items": [{**asdict(i), "status": i.status} for i in self.items],
             "truncated": self.truncated,
+            "empty": self.empty,
         }
         if self.links is not None:
             out["links"] = [asdict(x) for x in self.links]
@@ -182,7 +184,7 @@ def _n(x: float) -> str:
 def score_repo(path: Path, name: str | None = None, links: bool = False, opener: Opener | None = None) -> Report:
     """A repository's report; `links` also checks its model and data links (over the network)."""
     repo = Repo.read(path)
-    report = Report(name or path.resolve().name, run_checks(repo), repo.truncated)
+    report = Report(name or path.resolve().name, run_checks(repo), repo.truncated, empty=not repo.files)
     if links:
         targets = link_targets(repo)
         report.links = check_links(targets, opener) if opener else check_links(targets)

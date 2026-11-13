@@ -56,13 +56,25 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as e:
             print(f"repro-score: {args.list}: {e.strerror or e}", file=sys.stderr)
             return 2
-        targets += [s.split("#")[0].strip() for s in lines if s.split("#")[0].strip()]
+        listed = [s.split("#")[0].strip() for s in lines if s.split("#")[0].strip()]
+        if not listed and not targets:
+            print(f"repro-score: {args.list}: no repositories listed", file=sys.stderr)
+            return 2
+        targets += listed
     if not targets:
         targets = ["."]
     for t in targets:
         if parse(t) is None and not Path(t).is_dir():
-            print(f"repro-score: {t}: not a folder, nor github:owner/repo", file=sys.stderr)
+            hint = " (github:owner/repo)" if t.startswith(("github:", "gh:", "http")) else ""
+            print(f"repro-score: {t}: not a folder, nor a GitHub repository{hint}", file=sys.stderr)
             return 2
+    for f in (args.badge, args.summary_file, args.json_file):
+        if f is not None:
+            try:
+                f.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                print(f"repro-score: {f}: {e.strerror or e}", file=sys.stderr)
+                return 2
     many = len(targets) > 1
     if args.badge and many:
         print("repro-score: --badge is for one repository", file=sys.stderr)
