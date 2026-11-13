@@ -51,3 +51,18 @@ jobs:
           path: examples/paper-code
           min-score: "100"
       - run: test "${{ steps.strict.outcome }}" = failure
+  # The released Action by its tag, as another repository's workflow uses it (our own tag, on purpose not pinned to
+  # a commit: this job checks that what users get from @v0 works)
+  released-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: rs
+        uses: zch6a/repro-score@v0
+        with:
+          path: examples/paper-code
+      - env:
+          SCORE: ${{ steps.rs.outputs.score }}
+        run: test "$SCORE" -ge 0 && test "$SCORE" -le 100
