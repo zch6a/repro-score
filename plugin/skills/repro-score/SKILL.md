@@ -1,8 +1,8 @@
 ---
 name: repro-score
-description: Check how well a research code repository lets someone reproduce its paper, with repro-score: dependencies and pinned versions, install and run instructions (and whether the scripts they run exist), training and evaluation code, links to trained models and data, random seeds, compute, licence, citation, notebooks. Reads files only, runs nothing. Use when the user is about to release a paper's code, asks whether a repository is reproducible or what it is missing, or wants a reproducibility badge or CI check.
+description: "Check how well a research code repository lets someone reproduce its paper, with repro-score: dependencies and pinned versions, install and run instructions (and whether the scripts they run exist), training and evaluation code, links to trained models and data, random seeds, compute, licence, citation, notebooks. Reads files only, runs nothing. Use when the user is about to release a paper's code, asks whether a repository is reproducible or what it is missing, or wants a reproducibility badge or CI check."
 license: MIT
-compatibility: Needs Python 3.10+ and uv. Runs repro-score with uvx from GitHub (git+https://github.com/zch6a/repro-score) unless installed. Reads local files only; no network.
+compatibility: "Needs Python 3.10+ and uv. Runs repro-score with uvx from GitHub (git+https://github.com/zch6a/repro-score) unless installed. Reads local files only; no network."
 metadata:
   homepage: https://github.com/zch6a/repro-score
 ---

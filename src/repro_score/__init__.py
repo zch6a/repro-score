@@ -1,6 +1,6 @@
 """repro-score: how well a research code repository lets someone reproduce its paper, read from its files."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .checks import Evidence, Item  # noqa: E402
 from .repo import Repo  # noqa: E402

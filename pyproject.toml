@@ -1,6 +1,6 @@
 [project]
 name = "repro-score"
-version = "0.1.0"
+version = "0.1.1"
 description = "How well a research code repository lets someone reproduce its paper: dependencies and their versions, instructions, training and evaluation code, trained models and data, seeds, compute, licence, notebooks. Read from the files, nothing run; a score, the evidence, a badge and a GitHub Action."
 readme = "README.md"
 license = "MIT"
