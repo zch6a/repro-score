@@ -98,7 +98,7 @@ repro-score --list repos.txt --csv > scores.csv     # one per line: folders, git
 
 One row each — the score and each section's points — then the mean and median: the reproducibility of a venue's
 code releases, a lab's repositories, or a reading list. A GitHub repository is downloaded as an archive to a
-temporary folder (300 MB at most, 3 seconds between downloads, no token), read, and deleted; one that cannot be
+temporary folder (300 MB at most, 2 GB unpacked, 3 seconds between downloads, no token), read, and deleted; one that cannot be
 downloaded is reported in its row. Text, `--csv`, `--markdown` or `--json`.
 
 ## Dead links: `--check-links`
@@ -148,8 +148,9 @@ none of its code.
 - It knows Python projects best. R and Julia get their own dependency files and versions (`DESCRIPTION`,
   `renv.lock`, `Project.toml`, `Manifest.toml`), install commands (`install.packages`, `Pkg.add`), scripts
   (`source("run.R")`, `include("run.jl")`) and seeds (`set.seed`, `Random.seed!`); other languages, less.
-- Words decide some items (training and evaluation scripts by their names, data by the words near a link): a script
-  called `run.py` that trains is not seen as training code unless the README's command says so.
+- Words decide some items (training and evaluation scripts by their names and arguments, data by the words near a
+  link): a script called `run.py` that trains, with no `--is_training` or `--do_train` argument, is not seen as training
+  code unless the README's command says so.
 
 ## Also in this toolkit
 

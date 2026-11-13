@@ -178,3 +178,17 @@ def test_the_summary_and_json_files(tmp_path: Path, capsys: pytest.CaptureFixtur
 
 def test_evidence_text_is_shown_whole() -> None:
     assert str(Evidence("a.py", 3, "x")) == "a.py:3: x"
+
+
+def test_a_venues_repositories_round_4() -> None:
+    # NVIDIA's and Inria's research licences are recognised, and said to be non-commercial
+    got = items(
+        check_legal, {"LICENSE.txt": "Copyright (c) 2021, NVIDIA Corporation. All rights reserved.\n\nNVIDIA Source Code License for StyleGAN3\n"}
+    )
+    assert got["legal.licence"].points == 6 and "non-commercial" in got["legal.licence"].evidence[0].text
+    assert items(check_legal, {"LICENSE.md": "Gaussian-Splatting License\n===\n"})["legal.licence"].title == "a licence (Gaussian-Splatting License)"
+    # a run.py that trains with --is_training (thuml) is training code; a helper named grid_sample_gradfix.py is not evaluation code
+    got = items(check_code, {"run.py": "parser.add_argument('--is_training', type=int, required=True, default=1)\n",
+                             "torch_utils/ops/grid_sample_gradfix.py": "", "gen_images.py": ""})  # fmt: skip
+    assert got["code.train"].evidence[0].path == "run.py"
+    assert [e.path for e in got["code.eval"].evidence] == ["gen_images.py"]

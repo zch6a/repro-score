@@ -2,7 +2,7 @@
 
 # repro-score
 
-**别人能用你的代码复现你的论文吗？** 给科研代码仓库按项打分（满分 100），每一项都给出据以判断的文件与行号、以及该补什么——只读文件，不运行任何代码。
+**别人能用你的代码复现你的论文吗？** 给科研代码仓库按项打分（满分 100），每一项都给出据以判断的文件与行号，并写明该补什么。只读文件，不运行任何代码。
 
 <a href="https://github.com/zch6a/repro-score/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/zch6a/repro-score/actions/workflows/ci.yml/badge.svg"></a>
 <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-blue">
@@ -53,9 +53,9 @@ uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
 ## 局限
 
 - 只读不跑：README 写的脚本存在，也可能跑不通；除非加 `--check-links`，链接不会去访问。分数说明仓库给了读者什么，不保证结果能复现。
-- 面向论文代码：库（供他人调用的软件包）没有训练流程、结果表和模型可发布，这几项得分低，对复现论文而言如此，并不是对库本身的评价。
+- 面向论文代码：库（供他人调用的软件包）没有训练流程、结果表和模型可发布，这几项会得分低。这个分数衡量能不能复现论文，不评价库本身。
 - 对 Python 项目最熟；R 与 Julia 支持各自的依赖文件、安装命令、脚本与随机种子；其他语言支持较少。
-- 部分判断依据文字（脚本的名字、链接附近的词），名为 `run.py` 的训练脚本若 README 命令没说明，就不会被认作训练代码。
+- 部分判断依据文字（脚本的名字、参数、链接附近的词）。名为 `run.py`、也没有 `--is_training`/`--do_train` 之类参数的训练脚本，若 README 命令没说明，就不会被认作训练代码。
 
 ## 许可证
 

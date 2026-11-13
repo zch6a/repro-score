@@ -134,3 +134,29 @@ Tests: 79. ruff, ruff format, mypy clean.
 
 Next: polishing round 4 (more research repositories from a venue's list, end to end with `--list --csv`; the README's
 claims read against the code).
+### 2026-11-14 — polishing round 4
+
+**A venue's code, end to end** (`--list --csv`): 30 repositories of NeurIPS 2024 papers (GitHub search "NeurIPS 2024",
+by stars; dropped: one that is not a paper's code, two over the download cap), scored from GitHub, nothing kept. Mean
+74.1, median 74.5, range 53–93. The most common gap is compute: 17 of the 30 do not say what they ran on or for how
+long. Outliers read one by one; **found**:
+
+1. NVIDIA's Source Code License (R3GAN, StyleGAN-derived code) and the Gaussian-Splatting License (LightGaussian) were
+   "not recognised" (3/6): recognised now, and both said to be non-commercial (research use), like CC BY-NC.
+2. thuml's `run.py` trains with `--is_training 1` and was not seen as training code (TimeXer, code 3/15): a script with
+   an `--is_training`, `--do_train` or `--train` argument counts.
+3. `torch_utils/ops/grid_sample_gradfix.py` counted as evaluation code (its name has "sample"): helper and vendored
+   folders (ops, utils, lib, third_party, kernels, csrc) are left out, and "sample"/"generate" count only at the start
+   of a script's name (`gen_images.py`, `sample.py`).
+
+**The README's claims read against the code**: each holds; the download limits now say 2 GB unpacked, and the limit
+on training scripts found by name now mentions the arguments.
+
+**Chinese README**: checked against the writing findings of lieflat-less-ai-tone (shiujan; CC BY-NC 4.0, so its
+findings are applied, its text is not copied): a decorative dash and an "对…而言…并不是" frame rewritten; the colon
+before a list and the 顿号 lists inside list items stay (its paired re-test found people use them as much).
+
+Tests: 80. ruff, ruff format, mypy clean.
+
+Next: polishing round 5 (a last pass against the "polish" definition, docs read through; then v0.1.0, and the Action
+used by its tag from another repository's workflow).

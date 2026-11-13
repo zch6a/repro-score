@@ -503,8 +503,13 @@ TRAIN = re.compile(
     r"(^|[_\-/])(train|training|finetune|finetuning|fine_tune|fine-tune|pretrain|pretraining|pre_train|run_train|trainer|main_train)([_\-.]|$)", re.I
 )
 EVAL = re.compile(
-    r"(^|[_\-/])(eval|evaluate|evaluation|inference|infer|predict|sample|sampling|generate|benchmark|test|demo|reproduce)([_\-.]|$)", re.I
+    r"(^|[_\-/])(eval|evaluate|evaluation|inference|infer|predict|benchmark|test|demo|reproduce)([_\-.]|$)|^(sample|sampling|generate|gen)([_\-.]|$)",
+    re.I,
 )
+# folders of helpers and vendored code: a name there (grid_sample_gradfix.py) says nothing about experiments
+HELPERS = re.compile(r"(^|/)(ops|utils?|libs?|third_party|thirdparty|vendor|external|extern|kernels?|csrc)/", re.I)
+# a script that trains when asked: thuml's run.py --is_training 1, Hugging Face's run_glue.py --do_train
+TRAIN_ARG = re.compile(r"add_argument\(\s*[\"']--(is_training|do_train|train)\b|\.add_argument\(\s*[\"']--mode[\"'][^\n]{0,120}?train")
 
 
 # a script that prepares data, not one that trains or evaluates (data/split_train_val.py, tools/generate_splits.py)
@@ -532,10 +537,16 @@ def check_code(repo: Repo) -> list[Item]:
                 Item("code.eval", "code", "evaluation code", 0, 6, [], "the repository has no code"),
                 Item("code.config", "code", "hyperparameters in configs or arguments", 0, 3, [], "")]  # fmt: skip
     stems = {f: PurePosixPath(f).stem for f in code}
-    code = [f for f in code if not DATA_PREP.search(f)]
+    code = [f for f in code if not DATA_PREP.search(f) and not HELPERS.search(f)]
     train = [Evidence(f) for f in code if TRAIN.search(stems[f]) or (TRAIN.search(f) and f.lower().endswith((".sh", ".py")))]
     trained = {e.path for e in train}
     evals = [Evidence(f) for f in code if EVAL.search(stems[f]) and f not in trained]
+    if not train:
+        for f in [c for c in code if c.endswith(".py")][:400]:
+            hits = lines_matching(repo.text(f) or "", TRAIN_ARG)
+            if hits:
+                train.append(Evidence(f, hits[0][0], hits[0][1][:80]))
+                break
     path, text = readme_text(repo)
     if path:  # a README command that trains or evaluates (python run.py train ..., run_classifier.py --do_train)
         commands = [(i, s) for i, s in code_blocks(text) if RUNNERS.search(s)]
@@ -739,7 +750,11 @@ LICENCES = [
     ("CC-BY-NC-SA-4.0", r"CC BY-NC-SA 4\.0"),
     ("CC-BY-SA-4.0", r"Attribution-ShareAlike 4\.0"),
     ("Llama", r"LLAMA \d+(\.\d+)? COMMUNITY LICENSE"),
+    ("NVIDIA Source Code License", r"NVIDIA Source Code License"),
+    ("Gaussian-Splatting License", r"Gaussian-Splatting License"),
 ]
+# licences that allow research use but not commercial use
+NONCOMMERCIAL = {"CC-BY-NC-4.0", "CC-BY-NC-SA-4.0", "NVIDIA Source Code License", "Gaussian-Splatting License"}
 
 
 def licence_of(text: str) -> str | None:
@@ -766,7 +781,7 @@ def check_legal(repo: Repo) -> list[Item]:
                    "the LICENSE is not a licence it recognises: a standard one (MIT, Apache-2.0, BSD, GPL, CC BY) tells others plainly what they may do")  # fmt: skip
     elif files:
         lic = Item("legal.licence", "legal", f"a licence ({name})", 6, 6, [Evidence(files[0], None, name or "")])
-        if name and "NC" in name:
+        if name in NONCOMMERCIAL:
             lic.evidence[0].text += " (non-commercial: others may reuse it for research only)"
     elif declared:
         lic = Item("legal.licence", "legal", "a licence", 4, 6, [Evidence("pyproject.toml", None, declared.group(1).strip())],
