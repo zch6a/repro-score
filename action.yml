@@ -33,14 +33,16 @@ runs:
         TOOL: ${{ github.action_path }}
       run: |
         case "$MIN_SCORE" in ''|*[!0-9]*) echo "min-score must be a whole number, not: $MIN_SCORE" >&2; exit 2 ;; esac
-        uvx --from "$TOOL" repro-score "$REPO_PATH" --markdown >> "$GITHUB_STEP_SUMMARY"
-        uvx --from "$TOOL" repro-score "$REPO_PATH" --json > "$RUNNER_TEMP/repro-score.json"
-        score="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["score"])' "$RUNNER_TEMP/repro-score.json")"
-        echo "score=$score" >> "$GITHUB_OUTPUT"
+        report="$RUNNER_TEMP/repro-score.json"
+        badge=()
         if [ -n "$BADGE" ]; then
           mkdir -p "$(dirname "$BADGE")"
-          uvx --from "$TOOL" repro-score "$REPO_PATH" --brief --badge "$BADGE" > /dev/null
+          badge=(--badge "$BADGE")
         fi
+        # one run (a github: path is downloaded once); -- so that a path starting with - is a path
+        uvx --from "$TOOL" repro-score --brief --summary-file "$GITHUB_STEP_SUMMARY" --json-file "$report" "${badge[@]}" -- "$REPO_PATH"
+        score="$(uv run --no-project python -c 'import json,sys; print(json.load(open(sys.argv[1]))["score"])' "$report")"
+        echo "score=$score" >> "$GITHUB_OUTPUT"
         echo "repro-score: $score/100"
         if [ "$score" -lt "$MIN_SCORE" ]; then
           echo "::error::repro-score $score is under the minimum of $MIN_SCORE"

@@ -43,7 +43,7 @@ Dependencies  11/20
   ✗ a container or environment file  0/3
       → add a Dockerfile or a conda environment.yml so the whole environment, not only the Python packages, can be rebuilt
 Instructions  17/20
-  ✓ a README (154 words)  3/3
+  ✓ a README (156 words)  3/3
       README.md
   ✓ install commands  5/5
       README.md:9: pip install -r requirements.txt

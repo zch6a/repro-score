@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -93,7 +94,7 @@ class Report:
                 if not i.applies:
                     continue
                 note = i.advice if i.points < i.max and i.advice else "; ".join(str(e) for e in i.evidence[:2])
-                note = note.replace("|", "\\|")
+                note = re.sub(r"(?<!\\)\|", r"\\|", note)
                 lines.append(f"| {MARK[i.status]} | {title}: {i.title} | {_n(i.points)}/{_n(i.max)} | {note} |")
         if self.links is not None:
             lines += ["", self._links_line()]
@@ -170,7 +171,7 @@ class Table:
             return "repro-score: no repositories"
         keys = list(rows[0])
         lines = ["| " + " | ".join(keys) + " |", "|" + "---|" * len(keys)]
-        lines += ["| " + " | ".join(str(r[k]).replace("|", "\\|") for k in keys) + " |" for r in rows]
+        lines += ["| " + " | ".join(re.sub(r"(?<!\\)\|", r"\\|", str(r[k])) for k in keys) + " |" for r in rows]
         return "\n".join(lines)
 
 

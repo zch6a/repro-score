@@ -77,3 +77,40 @@ extracted; statuses from a fake opener). ruff, ruff format, mypy clean.
 
 Next: polishing round 2 (an independent review of the checks; the Action tried in a real workflow on a repository
 of its own; the social card).
+### 2026-11-13 — polishing round 2
+
+**An independent review** (a reviewer given the code, not my conclusions; every finding reproduced first, a
+regression test each in `tests/test_review.py`):
+
+- Crashes: a notebook cell whose `source` is not text (`[null]`, a number); a JSON number too long for `int()`
+  (Python 3.11+'s digit limit); a server's malformed reply (`BadStatusLine`, `IncompleteRead`) in `--check-links` and
+  in downloads. All now read as "nothing there" or "unreachable".
+- Wrong scores: notebooks over 2 MB (the ones saved with outputs) were not read — up to 50 MB now (Stable Diffusion's
+  notebooks section applies now); UTF-16 files (PowerShell 5's `pip freeze >`) and BOMs were misread; a pyproject
+  dependency with extras (`uvicorn[standard]==0.23`) ended the list early; a pyproject or setup.cfg holding only tool
+  settings counted as a dependency file (Segment Anything: 10 → 6, rightly: its setup.py lists nothing); an
+  environment marker (`python_version < "3.7"`) passed as the Python version; `conda install -c conda-forge` took
+  `conda-forge` for a package; a bare `git+…@<commit>` counted as unpinned; Hugging Face's settings pages, any `.zip`,
+  installers ("Download Anaconda"), PyPI pages, and data URLs in `requirements-dev.txt` counted as models or data;
+  `cd src && python train.py`, `(env) $` prompts, and a `cd` line before a command were not followed; a licence it does
+  not recognise had full points (now part, with advice); data-splitting scripts counted as training and evaluation code;
+  a closing fence inside a longer fence ended the block; `**https://…**` kept the asterisks in the URL.
+- Slow: three patterns backtracked quadratically on long lines (20k spaces: 3.6 s); patterns now search the first
+  4,000 characters of a line, and each document is split once for link context, not once per link.
+- Downloads: the compressed size was capped, not what it unpacks to (a 300 MB archive can expand to terabytes): 2 GB
+  now; Python 3.10 before 3.10.12 has no tarfile data filter, so paths are also checked by hand there. A batch whose
+  every download fails exits 2.
+- The Action ran the tool three times (three downloads for a `github:` path) and used the runner's `python3`: one run
+  now (`--summary-file`, `--json-file`), uv's Python, and `--` before the path.
+- The example's sentence about its datasets now says "datasets" (it said only "downloaded", which no longer counts by
+  itself, as the review asked); the README's output is regenerated.
+
+Fifteen real repositories scored again: only the two scores above moved.
+
+**Social card**: `scripts/social-card.html`, rendered with headless Chrome (no network, its own profile, deleted after)
+to `docs/social-preview.png`. Setting it as the repository's preview is a repository setting for its owner.
+
+Tests: 78. ruff, ruff format, mypy clean.
+
+Next: polishing round 3 (the Action used from another repository's workflow by its tag after the release; CLI and
+JSON review; packaging check of the wheel).

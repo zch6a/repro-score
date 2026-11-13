@@ -30,7 +30,7 @@ bash scripts/eval_all.sh
 | CIFAR-10 | 94.1 | 4.2 |
 | CIFAR-100 | 76.8 | 4.3 |
 
-CIFAR-10 and CIFAR-100 are downloaded by torchvision the first time `train.py` runs (see
+The datasets, CIFAR-10 and CIFAR-100, are downloaded by torchvision the first time `train.py` runs (see
 https://www.cs.toronto.edu/~kriz/cifar.html).
 
 Each run trains a sparse mixer from scratch with the hyperparameters in `configs/`; the numbers above are the mean of

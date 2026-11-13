@@ -8,6 +8,7 @@ Nothing in it is run.
 
 from __future__ import annotations
 
+import http.client
 import io
 import re
 import tarfile
@@ -15,7 +16,8 @@ import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
-MAX_BYTES = 300 * 1024 * 1024
+MAX_BYTES = 300 * 1024 * 1024  # the archive, compressed
+MAX_EXTRACTED = 2 * 1024 * 1024 * 1024  # what it unpacks to
 USER_AGENT = "repro-score"
 PATTERN = re.compile(r"^(?:github:|gh:|https?://(?:www\.)?github\.com/)([\w.\-]+)/([\w.\-]+?)(?:\.git)?(?:/tree/([\w.\-/]+)|@([\w.\-/]+))?/?$")
 
@@ -56,20 +58,33 @@ def download(owner: str, repo: str, ref: str, dest: Path, fetcher: Fetcher = _fe
         data = fetcher(url, MAX_BYTES)
     except RemoteError:
         raise
-    except OSError as e:  # URLError, HTTPError, timeouts
+    except (OSError, http.client.HTTPException) as e:  # URLError, HTTPError, timeouts, a broken reply
         reason = getattr(e, "code", None) or getattr(e, "reason", e)
         raise RemoteError(f"github:{owner}/{repo}@{ref}: could not download ({reason})") from e
     try:
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as t:
+            total = 0
             for m in t.getmembers():
                 parts = m.name.split("/", 1)
                 if len(parts) < 2 or not parts[1] or not (m.isfile() or m.isdir()):
                     continue  # the top folder (repo-sha/), links and devices
-                m.name = parts[1]
+                name = parts[1]
+                if name.startswith(("/", "\\")) or ".." in name.replace("\\", "/").split("/") or ":" in name:
+                    continue  # a path that would leave the folder (checked here too: older Pythons have no data filter)
+                total += m.size
+                if total > MAX_EXTRACTED:
+                    raise RemoteError(f"github:{owner}/{repo}@{ref}: it unpacks to more than {MAX_EXTRACTED // 1024**3} GB")
+                m.name = name
                 try:
-                    t.extract(m, dest, filter="data")
-                except (tarfile.FilterError, OSError):
+                    if hasattr(tarfile, "data_filter"):
+                        t.extract(m, dest, filter="data")
+                    else:  # Python 3.10 before 3.10.12: no filters; the checks above, and plain modes
+                        m.mode = 0o644 if m.isfile() else 0o755
+                        t.extract(m, dest)
+                except (tarfile.TarError, OSError):
                     continue  # a path outside the folder, or one this system cannot hold
+    except RemoteError:
+        raise
     except (tarfile.TarError, EOFError, OSError) as e:
         raise RemoteError(f"github:{owner}/{repo}@{ref}: not a readable archive ({e})") from e
     return dest

@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- The repository's social preview (1280×640): docs/social-preview.png, rendered from this page with headless Chrome
+     (chrome --headless --screenshot --window-size=1280,640). The output is repro-score's on examples/paper-code, shortened. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1280px; height: 640px; overflow: hidden; }
+  body { background: radial-gradient(1100px 700px at 12% 8%, #1d2333 0%, #10141b 55%, #0b0d11 100%); color: #e6edf3;
+    font-family: "Segoe UI", -apple-system, system-ui, sans-serif; display: grid; grid-template-columns: 420px 1fr; gap: 40px;
+    padding: 0 52px 0 70px; box-sizing: border-box; align-items: center; }
+  h1 { font-size: 64px; margin: 0 0 16px; letter-spacing: -1.5px; }
+  h1 span { color: #f0b35a; }
+  .tag { font-size: 32px; line-height: 1.22; margin: 0 0 22px; font-weight: 600; }
+  .sub { font-size: 18.5px; line-height: 1.5; color: #b1bac4; margin: 0 0 26px; }
+  .pills { display: flex; gap: 9px; flex-wrap: wrap; }
+  .pills span { font-size: 14.5px; border: 1px solid #30363d; background: #161b22; border-radius: 999px; padding: 6px 12px; color: #c9d1d9; }
+  .term { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; box-shadow: 0 26px 70px rgba(0,0,0,.55); overflow: hidden; }
+  .bar { display: flex; gap: 7px; align-items: center; padding: 11px 14px; background: #161b22; border-bottom: 1px solid #30363d; }
+  .bar i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .bar b { margin-left: 10px; font: 600 13px "Segoe UI", sans-serif; color: #8b949e; }
+  pre { margin: 0; padding: 16px 18px 18px; font: 13.4px/1.62 Consolas, "Cascadia Mono", ui-monospace, monospace; color: #c9d1d9; white-space: pre-wrap; }
+  .p { color: #7ee787; } .e { color: #ff7b72; font-weight: 700; } .w { color: #e3b341; } .n { color: #8b949e; } .k { color: #79c0ff; }
+  .h { color: #e6edf3; font-weight: 600; } .ok { color: #7ee787; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>repro-<span>score</span></h1>
+    <p class="tag">Can someone reproduce<br>your paper from your code?</p>
+    <p class="sub">A score for a research code repository, item by item with the file and line behind it and what to add: pinned dependencies, the exact commands, training and evaluation code, models and data, seeds, compute. Read from the files; nothing is run.</p>
+    <div class="pills"><span>Papers with Code checklist</span><span>GitHub Action</span><span>Badge</span><span>No dependencies</span></div>
+  </div>
+  <div class="term">
+    <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><b>repro-score paper-code/</b></div>
+<pre><span class="p">$</span> repro-score paper-code/
+<span class="h">repro-score: paper-code: 65/100</span>
+Dependencies  11/20
+  <span class="w">~</span> versions pinned (2 of 5 requirements)  4/7
+      <span class="n">requirements.txt:3: numpy>=1.24</span>
+Instructions  17/20
+  <span class="w">~</span> commands to run (4 in code blocks)  3/6
+      <span class="n">README.md:23: runs scripts/eval_all.sh, which is
+      not in the repository</span>
+  <span class="ok">✓</span> a table of results  6/6
+Training and evaluation code  15/15
+Models and data  7/15
+  <span class="e">✗</span> trained models to download  0/8
+      <span class="k">→ release the trained models so the results can
+        be checked without retraining</span>
+Randomness  6/10
+  <span class="ok">✓</span> random seeds set  6/6   <span class="n">train.py:15</span></pre>
+  </div>
+</body>
+</html>

@@ -41,6 +41,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--markdown", action="store_true", help="the report as a Markdown table (for $GITHUB_STEP_SUMMARY or a comment)")
     ap.add_argument("--csv", action="store_true", help="for several repositories: the table as CSV")
     ap.add_argument("--badge", type=Path, metavar="FILE", help="also write the score as an SVG badge to FILE (one repository)")
+    ap.add_argument("--summary-file", type=Path, metavar="FILE", help="also append the Markdown report to FILE ($GITHUB_STEP_SUMMARY)")
+    ap.add_argument("--json-file", type=Path, metavar="FILE", help="also write the JSON report to FILE")
     ap.add_argument("--min-score", type=int, metavar="N", help="exit 1 if a score is under N")
     ap.add_argument("--check-links", action="store_true", help="also check that the model and data links answer (reaches the network)")
     ap.add_argument("--brief", action="store_true", help="the items without their evidence")
@@ -107,6 +109,14 @@ def main(argv: list[str] | None = None) -> int:
             print(report.text(evidence=not args.brief))
         if args.badge:
             args.badge.write_text(badge(report.score), encoding="utf-8")
+    if args.summary_file:
+        with args.summary_file.open("a", encoding="utf-8") as f:
+            f.write((Table(reports).markdown() if many else reports[0].markdown()) + "\n")
+    if args.json_file:
+        data = [r.json() for r in reports] if many else reports[0].json()
+        args.json_file.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if all(r.error for r in reports):
+        return 2  # nothing could be read
     under = [r for r in reports if not r.error and args.min_score is not None and r.score < args.min_score]
     if under:
         names = ", ".join(f"{r.name} ({r.score})" for r in under[:10])

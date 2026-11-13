@@ -14,3 +14,5 @@ First release.
   table (text, CSV, Markdown, JSON) with the mean and median.
 - `--check-links`: whether the model and data links still answer, listed beside the score.
 - R and Julia: dependency files and versions, install commands, scripts, seeds, `test/` folders.
+- `--summary-file` (appends the Markdown report, for `$GITHUB_STEP_SUMMARY`) and `--json-file`: the Action runs the tool once.
+- Files in UTF-16 (PowerShell's `pip freeze >`) or with a BOM, and notebooks up to 50 MB, are read.

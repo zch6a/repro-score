@@ -9,6 +9,21 @@ from pathlib import Path
 SKIP_DIRS = {".git", ".hg", ".svn", "node_modules", "__pycache__", ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
              ".ruff_cache", "site-packages", ".idea", ".vscode", "wandb", ".ipynb_checkpoints"}  # fmt: skip
 TEXT_LIMIT = 2_000_000  # bytes: larger files are listed, not read
+NOTEBOOK_LIMIT = 50_000_000
+
+
+def decode(data: bytes) -> str:
+    """Text as files are written: UTF-8 (with or without a BOM), or UTF-16 with its BOM (PowerShell 5's
+    `pip freeze > requirements.txt`); undecodable bytes replaced.
+
+    >>> decode("torch==2.1\\n".encode("utf-16")), decode(b"\\xef\\xbb\\xbf{}")
+    ('torch==2.1\\n', '{}')
+    """
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return data.decode("utf-16", errors="replace")
+    return data.decode("utf-8-sig", errors="replace")
+
+
 MAX_FILES = 50_000
 
 
@@ -53,8 +68,9 @@ class Repo:
         """A file's text (UTF-8, errors replaced), or None if it is too large or cannot be read."""
         if path not in self._text:
             p = self.root / path
+            limit = NOTEBOOK_LIMIT if path.lower().endswith(".ipynb") else TEXT_LIMIT  # notebooks saved with outputs are large
             try:
-                self._text[path] = p.read_text(encoding="utf-8", errors="replace") if p.stat().st_size <= TEXT_LIMIT else None
+                self._text[path] = decode(p.read_bytes()) if p.stat().st_size <= limit else None
             except OSError:
                 self._text[path] = None
         return self._text[path]

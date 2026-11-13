@@ -56,6 +56,7 @@ SECTIONS = {
     "notebooks": "Notebooks",
 }
 
+LINE_LIMIT = 4000  # characters of a line that patterns are searched in: minified or generated lines are not prose
 CODE = (".py", ".r", ".jl", ".m", ".lua", ".scala", ".cpp", ".cu", ".c", ".rs", ".go", ".java", ".ipynb", ".sh")
 DOCS = (".md", ".markdown", ".rst", ".txt")
 
@@ -72,6 +73,7 @@ def lines_matching(text: str, pattern: re.Pattern[str], width: int = 90) -> list
     """
     out = []
     for i, line in enumerate(text.splitlines(), 1):
+        line = line[:LINE_LIMIT]
         m = pattern.search(line)
         if not m:
             continue
@@ -100,9 +102,15 @@ def code_blocks(text: str) -> list[tuple[int, str]]:
     previous = ""
     for i, line in enumerate(lines, 1):
         s = line.strip()
-        m = re.match(r"^\s*(`{3,}|~{3,})", line)
+        m = re.match(r"^\s*(`{3,}|~{3,})(.*)$", line)
         if m:
-            fence = None if fence and m.group(1)[0] == fence[0] else (m.group(1) if fence is None else fence)
+            mark, rest = m.group(1), m.group(2).strip()
+            if fence is None:
+                fence = mark
+            elif mark[0] == fence[0] and len(mark) >= len(fence) and not rest:
+                fence = None
+            else:
+                out.append((i, _unprompt(s)))  # a fence shown inside a longer one
             previous = line
             continue
         if fence:
@@ -123,7 +131,7 @@ def code_blocks(text: str) -> list[tuple[int, str]]:
 
 
 def _unprompt(s: str) -> str:
-    return re.sub(r"^(\$|>|%|#\s*\$)\s+", "", s)
+    return re.sub(r"^(\(\S+\)\s*)?(\$|>|%|#\s*\$)\s+", "", s)
 
 
 RUNNERS = re.compile(
@@ -148,8 +156,9 @@ def readme_text(repo: Repo) -> tuple[str | None, str]:
 def docs(repo: Repo) -> list[str]:
     """The README and other docs: top-level text files and docs/ (where setup and results are often written)."""
     readme = repo.readme()
+    deps = set(_dep_files(repo))
     rest = [f for f in repo.files if f.lower().endswith(DOCS) and f != readme and (f.count("/") == 0 or f.lower().startswith(("docs/", "doc/")))
-            and not f.lower().endswith(("requirements.txt", "license.txt", "licence.txt"))]  # fmt: skip
+            and f not in deps and not (f.lower().endswith(".txt") and not re.match(r"(install|setup|usage|results?|reproduc\w*)\b", PurePosixPath(f).name.lower()))]  # fmt: skip
     return ([readme] if readme else []) + rest[:40]
 
 
@@ -199,7 +208,7 @@ def _requirement_lines(text: str, kind: str) -> list[tuple[int, str]]:
             if m and m.group(1).strip() not in ("pip",) and not m.group(1).strip().endswith(":"):
                 reqs.append((i, m.group(1).strip()))
     elif kind == "pyproject":
-        m = re.search(r"(?ms)^dependencies\s*=\s*\[(.*?)\]", text)
+        m = re.search(r"(?ms)^dependencies\s*=\s*\[(.*?)\]\s*(?:#[^\n]*)?$", text)
         if m:
             start = text[: m.start(1)].count("\n") + 1
             for j, line in enumerate(m.group(1).splitlines()):
@@ -210,6 +219,13 @@ def _requirement_lines(text: str, kind: str) -> list[tuple[int, str]]:
             start = text[: m.start(1)].count("\n") + 1
             for j, line in enumerate(m.group(1).splitlines()):
                 if "=" in line and not line.strip().startswith(("#", "python")):
+                    reqs.append((start + j, line.strip()))
+    elif kind == "setup.cfg":
+        m = re.search(r"(?m)^install_requires\s*=[ \t]*\n((?:[ \t]+\S[^\n]*\n?)+)", text)
+        if m:
+            start = text[: m.start(1)].count("\n") + 1
+            for j, line in enumerate(m.group(1).splitlines()):
+                if line.strip() and not line.strip().startswith("#"):
                     reqs.append((start + j, line.strip()))
     elif kind == "setup":
         m = re.search(r"install_requires\s*=\s*\[(.*?)\]", text, re.S)
@@ -227,11 +243,13 @@ def pinned(req: str) -> bool:
 
     >>> [pinned(r) for r in ("torch==2.1.0", "numpy>=1.20", "scipy", "python=3.10", "x @ git+https://g/x@3f2a1bc9", 'torch = "2.1.0"')]
     [True, False, False, True, True, True]
+    >>> pinned("git+https://github.com/a/b@3f2a1bc9#egg=b")
+    True
     """
     r = req.strip()
     if "==" in r or "===" in r:
         return True
-    if re.search(r"@\s*git\+\S+@[0-9a-f]{7,40}\b", r):
+    if re.search(r"git\+\S+@[0-9a-f]{7,40}\b", r):
         return True
     if re.fullmatch(r"[\w.\-\[\]]+\s*=\s*[\w.*]+(=\w+)?", r) and not re.search(r"[<>~^!]", r):  # conda: numpy=1.26 or numpy=1.26=py310
         return True
@@ -249,16 +267,52 @@ def _readme_packages(repo: Repo) -> list[tuple[str, int, str]]:
         m = re.search(r"\b(?:pip3?|conda|mamba|uv\s+pip)\s+install\s+(.*)", cmd)
         if not m:
             continue
+        skip = False
         for tok in m.group(1).split():
             tok = tok.strip("\"'")
+            if skip:  # the value of -c, -r, -f, -i, --index-url...
+                skip = False
+                continue
+            if tok in (
+                "-c",
+                "--channel",
+                "-r",
+                "--requirement",
+                "-f",
+                "--find-links",
+                "-i",
+                "--index-url",
+                "--extra-index-url",
+                "-e",
+                "--editable",
+                "-n",
+                "--name",
+            ):
+                skip = True
+                continue
             if tok.startswith("-") or tok in (".", "..") or "/" in tok or tok.endswith((".txt", ".yml", ".yaml")):
                 continue
             out.append((path or "", i, tok))
     return out
 
 
+def _kind(f: str) -> str:
+    """How a dependency file lists its packages ("" for lock files and the like, which are not read line by line)."""
+    name = PurePosixPath(f).name.lower()
+    if name in LOCKS:
+        return ""
+    return ("requirements" if name.startswith("requirements") else "conda" if name.endswith((".yml", ".yaml"))
+            else "pyproject" if name == "pyproject.toml" else "setup" if name == "setup.py" else "setup.cfg" if name == "setup.cfg" else "")  # fmt: skip
+
+
 def check_dependencies(repo: Repo) -> list[Item]:
     files = _dep_files(repo)
+    listing = [f for f in files if _kind(f) in ("", "conda") or _requirement_lines(repo.text(f) or "", _kind(f))]
+    for f in files:
+        if PurePosixPath(f).name.lower() in ("pyproject.toml", "setup.cfg") and f not in listing and re.search(
+                r"(?m)^\[tool\.poetry\.dependencies\]|^\[project\.optional-dependencies\]", repo.text(f) or ""):  # fmt: skip
+            listing.append(f)
+    files = listing
     items = []
     ev = [Evidence(f) for f in files[:8]]
     named = _readme_packages(repo) if not files else []
@@ -281,9 +335,7 @@ def check_dependencies(repo: Repo) -> list[Item]:
         elif len(loose) < 5:
             loose.append(Evidence(p, line, req))
     for f in files:
-        name = PurePosixPath(f).name.lower()
-        kind = ("requirements" if name.startswith("requirements") else "conda" if name.endswith((".yml", ".yaml")) and name not in LOCKS
-                else "pyproject" if name == "pyproject.toml" else "setup" if name == "setup.py" else "")  # fmt: skip
+        kind = _kind(f)
         if not kind:
             continue
         for line, req in _requirement_lines(repo.text(f) or "", kind):
@@ -321,7 +373,7 @@ def check_dependencies(repo: Repo) -> list[Item]:
 def _python_version(repo: Repo, dep_files: list[str]) -> list[Evidence]:
     out = []
     pattern = re.compile(
-        r"requires-python\s*=|python_requires\s*=|^\s*-\s*python\s*[=<>]=?\s*\d|^python\s*=\s*[\"'][\^~>=<]*\d|python_version"
+        r"requires-python\s*=|python_requires\s*=|^\s*-\s*python\s*[=<>]=?\s*\d|^python\s*=\s*[\"'][\^~>=<]*\d|^python_version\s*="
         r"|^Depends:.*\bR\s*\(\s*>=|^julia\s*=\s*[\"']|^julia_version\s*="
     )  # R's DESCRIPTION, Julia's [compat] and Manifest
     for f in dep_files + [f for f in repo.files if PurePosixPath(f).name.lower() in (".python-version", "runtime.txt", "dockerfile")]:
@@ -399,16 +451,32 @@ def check_instructions(repo: Repo) -> list[Item]:
         items.append(Item("run.readme", "run", f"a README ({words} words)", 3 if words >= 150 else 1, 3, [Evidence(path)],
                           "" if words >= 150 else "the README is too short to say how to reproduce the results"))  # fmt: skip
     blocks = [(path or "", i, s) for i, s in code_blocks(text)] if path else []
-    for d in docs(repo)[1:]:
-        blocks += [(d, i, s) for i, s in code_blocks(repo.text(d) or "")]
+    for d in docs(repo):
+        if d != path:
+            blocks += [(d, i, s) for i, s in code_blocks(repo.text(d) or "")]
     installs = [Evidence(p, i, s[:100]) for p, i, s in blocks if INSTALL.search(s)]
     items.append(Item("run.install", "run", "install commands", 5 if installs else 0, 5, installs[:3],
                       "" if installs else "give the commands that install the environment (pip install -r requirements.txt, conda env create -f ...)"))  # fmt: skip
-    runs = [(p, i, s) for p, i, s in blocks if RUNNERS.search(s) and not INSTALL.search(s)]
+    runs: list[tuple[str, int, str, str]] = []  # (file, line, command, the folder a cd before it moved to)
+    cwd, last = "", ("", -10)
+    for p, i, line in blocks:
+        if (p, i) != (last[0], last[1] + 1):
+            cwd = ""  # a new code block starts in the repository's root
+        last = (p, i)
+        for part in re.split(r"\s*(?:&&|;)\s*", line):
+            m = re.match(r"^cd\s+([\w./\-]+)\s*$", part)
+            if m:
+                target = m.group(1).removeprefix("./").rstrip("/")
+                cwd = "" if target in ("", ".", "~") else str(PurePosixPath(cwd) / target) if cwd else target
+                continue
+            if RUNNERS.search(part) and not INSTALL.search(part):
+                runs.append((p, i, line, cwd))
     missing: list[Evidence] = []
     found: list[Evidence] = []
-    for p, i, s in runs:
-        for script, module in _scripts_in(s):
+    for p, i, s, here in runs:
+        for script, module in _scripts_in(s.split("&&")[-1]):
+            if here and not module and not repo.exists(script) and repo.exists(f"{here}/{script}"):
+                script = f"{here}/{script}"
             ok = repo.exists(script) or (module and (repo.exists(script + ".py") or repo.exists(script + "/__main__.py")))
             if not ok and module and not repo.exists(script.split("/")[0]) and not repo.exists(script.split("/")[0] + ".py"):
                 continue  # python -m torch.distributed.run: a module of an installed package, not of the repository
@@ -420,7 +488,7 @@ def check_instructions(repo: Repo) -> list[Item]:
     else:
         pts, advice = 0, "give the exact commands that train, evaluate and produce each result, in code blocks"
     items.append(Item("run.commands", "run", f"commands to run ({len(runs)} in code blocks)", pts, 6,
-                      (missing + found)[:5] or [Evidence(p, i, s[:100]) for p, i, s in runs[:3]], advice))  # fmt: skip
+                      (missing + found)[:5] or [Evidence(p, i, s[:100]) for p, i, s, _ in runs[:3]], advice))  # fmt: skip
     rows: list[Evidence] = []
     for d in docs(repo):
         rows += [Evidence(d, i, s) for i, s in _numeric_table(repo.text(d) or "")]
@@ -436,6 +504,13 @@ TRAIN = re.compile(
 )
 EVAL = re.compile(
     r"(^|[_\-/])(eval|evaluate|evaluation|inference|infer|predict|sample|sampling|generate|benchmark|test|demo|reproduce)([_\-.]|$)", re.I
+)
+
+
+# a script that prepares data, not one that trains or evaluates (data/split_train_val.py, tools/generate_splits.py)
+DATA_PREP = re.compile(
+    r"(^|/)(data|datasets?|preprocess\w*)/|(^|/|_)(split|splits|preprocess|prepare|download|convert|make_data)[_\-.]|_(data|dataset|splits?)\.\w+$",
+    re.I,
 )
 
 
@@ -457,6 +532,7 @@ def check_code(repo: Repo) -> list[Item]:
                 Item("code.eval", "code", "evaluation code", 0, 6, [], "the repository has no code"),
                 Item("code.config", "code", "hyperparameters in configs or arguments", 0, 3, [], "")]  # fmt: skip
     stems = {f: PurePosixPath(f).stem for f in code}
+    code = [f for f in code if not DATA_PREP.search(f)]
     train = [Evidence(f) for f in code if TRAIN.search(stems[f]) or (TRAIN.search(f) and f.lower().endswith((".sh", ".py")))]
     trained = {e.path for e in train}
     evals = [Evidence(f) for f in code if EVAL.search(stems[f]) and f not in trained]
@@ -478,7 +554,9 @@ def check_code(repo: Repo) -> list[Item]:
     ]
     args: list[Evidence] = []
     if not configs:
-        pattern = re.compile(r"add_argument\(.*default\s*=|@hydra\.main|flags\.DEFINE_|ml_collections|OmegaConf\.|HfArgumentParser|tyro\.cli")
+        pattern = re.compile(
+            r"add_argument\([^\n]{0,300}?default\s*=|@hydra\.main|flags\.DEFINE_|ml_collections|OmegaConf\.|HfArgumentParser|tyro\.cli"
+        )
         for f in [c for c in code if c.endswith(".py")][:400]:
             hits = lines_matching(repo.text(f) or "", pattern)
             if hits:
@@ -493,13 +571,15 @@ def check_code(repo: Repo) -> list[Item]:
 
 # --- models and data -------------------------------------------------------------------------------------------------
 
-URL = re.compile(r"https?://[^\s)\]>\"'`]+")
+URL = re.compile(r"https?://[^\s)\]>\"'`*|<]+")
 MODEL_HOSTS = re.compile(
-    r"huggingface\.co/(?!datasets/|docs/|spaces/|blog/|papers/|join|login)[\w\-]+/[\w.\-]+|drive\.google\.com|docs\.google\.com/uc|dropbox\.com|"
+    r"huggingface\.co/(?!datasets/|docs/|spaces/|blog/|papers/|join|login|settings/|models\b|collections/|organizations/|pricing|enterprise|learn/|tasks/|new\b)[\w\-]+/[\w.\-]+|drive\.google\.com|docs\.google\.com/uc|dropbox\.com|"
     r"zenodo\.org/(record|records|doi)|figshare\.com|1drv\.ms|onedrive\.live\.com|sharepoint\.com|pan\.baidu\.com|"
     r"github\.com/[\w\-.]+/[\w\-.]+/releases|download\.pytorch\.org/models|storage\.googleapis\.com|s3[\w.\-]*\.amazonaws\.com|"
-    r"dl\.fbaipublicfiles\.com|openaipublic\.|modelscope\.cn|\.(pth|pt|ckpt|safetensors|h5|onnx|pkl|npz|bin|tar|zip)(\?|$)"
+    r"dl\.fbaipublicfiles\.com|openaipublic\.|modelscope\.cn|\.(pth|pt|ckpt|safetensors|h5|onnx|pkl|npz|bin)(\?|$)"
 )
+ARCHIVE = re.compile(r"\.(zip|tar|tar\.gz|tgz|7z)(\?|$)", re.I)
+MODEL_WORDS = re.compile(r"\b(models?|checkpoints?|weights?|pretrained|pre-trained|ckpt)\b", re.I)
 DATA_HOSTS = re.compile(
     r"huggingface\.co/datasets/|kaggle\.com/(datasets|c|competitions)|zenodo\.org|figshare\.com|image-net\.org|cocodataset\.org|"
     r"archive\.ics\.uci\.edu|paperswithcode\.com/dataset|tensorflow\.org/datasets|physionet\.org|openml\.org|dataverse|osf\.io|"
@@ -508,9 +588,9 @@ DATA_HOSTS = re.compile(
 # links that are documentation or papers, not data, even next to the word "data"
 NOT_DATA = re.compile(
     r"//docs\.|/docs?/|readthedocs|\.github\.io/|wikipedia\.org|arxiv\.org|doi\.org/|openreview\.net|aclanthology|"
-    r"github\.com/[\w\-.]+/[\w\-.]+/?(#.*)?$|shields\.io|badge|help\."
+    r"github\.com/[\w\-.]+/[\w\-.]+/?(#.*)?$|shields\.io|badge|help\.|pypi\.org|anaconda\.(com|org)|conda\.io|pytorch\.org/get-started|python\.org"
 )
-DATA_WORDS = re.compile(r"\b(data|dataset|datasets|corpus|corpora|benchmark|download|downloaded|split|splits)\b", re.I)
+DATA_WORDS = re.compile(r"\b(data|dataset|datasets|corpus|corpora|benchmark|split|splits)\b", re.I)
 DATA_LOADERS = re.compile(
     r"torchvision\.datasets\.|datasets\.\w+\(\s*root|load_dataset\(|tfds\.load\(|tensorflow_datasets|keras\.datasets\.|sklearn\.datasets\."
 )
@@ -528,15 +608,20 @@ def links(repo: Repo) -> list[tuple[str, int, str]]:
 def artifact_links(repo: Repo) -> tuple[list[Evidence], list[Evidence]]:
     """Every link to trained models, and every link to data, in the README and docs (the URL whole)."""
     found = links(repo)
-    # a link to a model host or a weights file (a Drive or Zenodo link may hold data too: it counts for models)
-    models = [Evidence(p, i, u) for p, i, u in found if MODEL_HOSTS.search(u) and "huggingface.co/datasets/" not in u]
+    split: dict[str, list[str]] = {}
 
-    def about_data(p: str, i: int) -> bool:  # a link on a line that speaks of data, or just after one
-        lines = (repo.text(p) or "").splitlines()
-        return 0 < i <= len(lines) and bool(DATA_WORDS.search(" ".join(lines[max(0, i - 2) : i])))
+    def near(p: str, i: int, words: re.Pattern[str]) -> bool:  # the link's line, or the one before, speaks of these
+        if p not in split:
+            split[p] = (repo.text(p) or "").splitlines()
+        lines = split[p]
+        return 0 < i <= len(lines) and bool(words.search(" ".join(x[:LINE_LIMIT] for x in lines[max(0, i - 2) : i])))
 
+    # a link to a model host or a weights file (a Drive or Zenodo link may hold data too: it counts for models); an
+    # archive (.zip, .tar) counts when its line speaks of models, and for data when it speaks of data
+    models = [Evidence(p, i, u) for p, i, u in found if "huggingface.co/datasets/" not in u
+              and (MODEL_HOSTS.search(u) or (ARCHIVE.search(u) and near(p, i, MODEL_WORDS)))]  # fmt: skip
     data = [Evidence(p, i, u) for p, i, u in found
-            if not NOT_DATA.search(u) and (DATA_HOSTS.search(u) or (not MODEL_HOSTS.search(u) and about_data(p, i)))]  # fmt: skip
+            if not NOT_DATA.search(u) and (DATA_HOSTS.search(u) or (not MODEL_HOSTS.search(u) and near(p, i, DATA_WORDS)))]  # fmt: skip
     return models, data
 
 
@@ -562,7 +647,7 @@ def check_artifacts(repo: Repo) -> list[Item]:
                 break
     path, text = readme_text(repo)
     if not data and path:
-        heads = lines_matching(text, re.compile(r"^(#+|[=\-]{3,}$)?\s*.*\b(data|dataset|datasets|data preparation|preparing data)\b", re.I))
+        heads = lines_matching(text, re.compile(r"^(?:#+|\*\*)[^\n]{0,200}?\b(data|dataset|datasets|data preparation|preparing data)\b", re.I))
         heads = [(i, s) for i, s in heads if s.startswith("#") or re.match(r"^\*\*.*\*\*$", s)]
         data += [Evidence(path, i, s[:80]) for i, s in heads[:2]]
     return [
@@ -675,10 +760,12 @@ def check_legal(repo: Repo) -> list[Item]:
     for f in files:
         name = licence_of(repo.text(f) or "") or name
     pyproject = repo.text("pyproject.toml") or "" if repo.exists("pyproject.toml") else ""
-    declared = re.search(r"(?m)^license\s*=\s*[\"{]?\s*(?:text\s*=\s*)?[\"']?([\w.\-+ ]+)", pyproject)
-    if files:
-        lic = Item("legal.licence", "legal", f"a licence ({name or 'not recognised'})", 6, 6, [Evidence(files[0], None, name or "")],
-                   "" if name else "")  # fmt: skip
+    declared = re.search(r"(?m)^license\s*=\s*(?:\{\s*text\s*=\s*)?[\"']([\w.\-+ ]+)[\"']", pyproject)
+    if files and not name:
+        lic = Item("legal.licence", "legal", "a licence (not recognised)", 3, 6, [Evidence(files[0])],
+                   "the LICENSE is not a licence it recognises: a standard one (MIT, Apache-2.0, BSD, GPL, CC BY) tells others plainly what they may do")  # fmt: skip
+    elif files:
+        lic = Item("legal.licence", "legal", f"a licence ({name})", 6, 6, [Evidence(files[0], None, name or "")])
         if name and "NC" in name:
             lic.evidence[0].text += " (non-commercial: others may reuse it for research only)"
     elif declared:
@@ -704,6 +791,14 @@ def check_legal(repo: Repo) -> list[Item]:
 # --- notebooks -------------------------------------------------------------------------------------------------------
 
 
+def _source(cell: dict) -> str:
+    """A cell's source, as nbformat writes it (a string or a list of strings); anything else is empty."""
+    src = cell.get("source")
+    if isinstance(src, str):
+        return src
+    return "".join(x for x in src if isinstance(x, str)) if isinstance(src, list) else ""
+
+
 def notebook_state(text: str) -> tuple[int, int, bool]:
     """(code cells, code cells with outputs, run top to bottom): execution counts increasing and none missing.
 
@@ -715,12 +810,12 @@ def notebook_state(text: str) -> tuple[int, int, bool]:
     """
     try:
         nb = json.loads(text)
-    except (json.JSONDecodeError, RecursionError):
+    except (ValueError, RecursionError):  # JSONDecodeError, and a number too long to convert
         return 0, 0, False
     cells = nb.get("cells") if isinstance(nb, dict) else None
     if not isinstance(cells, list):
         return 0, 0, False
-    code = [c for c in cells if isinstance(c, dict) and c.get("cell_type") == "code" and "".join(c.get("source") or []).strip()]
+    code = [c for c in cells if isinstance(c, dict) and c.get("cell_type") == "code" and _source(c).strip()]
     with_out = sum(1 for c in code if c.get("outputs"))
     raw = [c.get("execution_count") for c in code]
     counts = [n for n in raw if isinstance(n, int)]

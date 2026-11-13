@@ -7,6 +7,7 @@ it (it stays the same offline); dead links are listed beside it.
 
 from __future__ import annotations
 
+import http.client
 import time
 import urllib.error
 import urllib.request
@@ -78,7 +79,7 @@ def check_links(targets: list[tuple[str, str]], opener: Opener = _open, pause: f
             status = opener(urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT}), TIMEOUT)
             if status in (403, 405, 501):  # some hosts refuse HEAD: ask for one byte instead
                 status = opener(urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"}), TIMEOUT)
-        except (urllib.error.URLError, OSError, ValueError) as e:
+        except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as e:
             note = str(getattr(e, "reason", e))[:80]
         last[host] = time.monotonic()
         out.append(Link(url, where, status, verdict(status), note))
