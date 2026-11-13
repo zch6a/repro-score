@@ -23,6 +23,10 @@ uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
 
 输出示例见[英文 README](README.md)（对虚构仓库 [examples/paper-code](examples/paper-code) 的运行结果）。`--brief` 省略证据，`--markdown` 输出表格（用于 PR 或 CI 摘要），`--json` 输出完整报告，`--badge score.svg` 生成徽章，`--min-score 60` 低于 60 分时退出码为 1。
 
+`repro-score github:owner/repo` 不必克隆即可检查 GitHub 仓库（下载压缩包到临时目录，读完即删，不运行其中代码）。
+`repro-score --list repos.txt --csv` 一次检查一批仓库（每行一个：本地目录、github:owner/repo 或 GitHub 网址），每个仓库一行分项得分，并给出均值与中位数，可用来统计一个会议的论文代码。
+`--check-links` 检查模型与数据链接是否仍可访问（最多 40 个，同一站点间隔 1 秒），失效链接列在分数旁边，不计入分数。
+
 ## 检查什么
 
 - **依赖（20）**：依赖文件（只在 README 的 `pip install` 里列出的包算一部分）、版本是否锁定（锁文件，或 80% 以上用 `==`）、Python 版本、Dockerfile 或 conda 环境。
@@ -48,8 +52,9 @@ uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
 
 ## 局限
 
-- 只读不跑：README 写的脚本存在，也可能跑不通；链接不会去访问，可能已失效。分数说明仓库给了读者什么，不保证结果能复现。
-- 对 Python 项目最熟；R、Julia 等语言部分支持。
+- 只读不跑：README 写的脚本存在，也可能跑不通；除非加 `--check-links`，链接不会去访问。分数说明仓库给了读者什么，不保证结果能复现。
+- 面向论文代码：库（供他人调用的软件包）没有训练流程、结果表和模型可发布，这几项得分低，对复现论文而言如此，并不是对库本身的评价。
+- 对 Python 项目最熟；R 与 Julia 支持各自的依赖文件、安装命令、脚本与随机种子；其他语言支持较少。
 - 部分判断依据文字（脚本的名字、链接附近的词），名为 `run.py` 的训练脚本若 README 命令没说明，就不会被认作训练代码。
 
 ## 许可证

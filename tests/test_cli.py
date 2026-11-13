@@ -43,7 +43,7 @@ def test_text_markdown_json_and_badge(tmp_path: Path, capsys: pytest.CaptureFixt
 def test_min_score_and_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     r = repo(tmp_path / "r")
     assert cli.main([str(r), "--min-score", "101"]) == 1
-    assert "is under the minimum of 101" in capsys.readouterr().err
+    assert "under the minimum of 101: r (" in capsys.readouterr().err
     assert cli.main([str(r), "--min-score", "0"]) == 0
     assert cli.main([str(tmp_path / "nothing")]) == 2
     assert "not a folder" in capsys.readouterr().err

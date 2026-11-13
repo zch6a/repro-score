@@ -130,11 +130,13 @@ RUNNERS = re.compile(
     r"^(?:(?:[A-Z_][A-Z0-9_]*=\S*\s+)*)"  # VAR=value prefixes (CUDA_VISIBLE_DEVICES=0)
     r"(?:(?:uv|poetry|pdm|pipenv|conda)\s+run\s+(?:-n\s+\S+\s+)?)?"
     r"(python3?|torchrun|accelerate\s+launch|deepspeed|bash|sh|zsh|srun|sbatch|make|jupyter|julia|Rscript|\./)\b"
+    r"|^\s*(source|include)\(\s*[\"'][^\"']+\.(R|r|jl)[\"']"  # R's source("run.R"), Julia's include("run.jl")
 )
 INSTALL = re.compile(
     r"\b(pip3?\s+install|python3?\s+-m\s+pip\s+install|conda\s+(env\s+create|create|install)|mamba\s+(env\s+create|create|install)"
     r"|uv\s+(sync|pip\s+install)|poetry\s+install|pdm\s+install|pipenv\s+install|docker\s+(build|pull|run)|setup\.py\s+(install|develop)"
-    r"|apptainer\s+(build|pull)|singularity\s+(build|pull)|R\s+-e|install\.packages)"
+    r"|apptainer\s+(build|pull)|singularity\s+(build|pull)|R\s+-e|install\.packages|install_github\(|BiocManager::install|renv::restore"
+    r"|Pkg\.(add|instantiate|activate)\(|^\]\s*(add|instantiate|activate)\b|pkg>\s*(add|instantiate))"
 )
 
 
@@ -318,7 +320,10 @@ def check_dependencies(repo: Repo) -> list[Item]:
 
 def _python_version(repo: Repo, dep_files: list[str]) -> list[Evidence]:
     out = []
-    pattern = re.compile(r"requires-python\s*=|python_requires\s*=|^\s*-\s*python\s*[=<>]=?\s*\d|^python\s*=\s*[\"'][\^~>=<]*\d|python_version")
+    pattern = re.compile(
+        r"requires-python\s*=|python_requires\s*=|^\s*-\s*python\s*[=<>]=?\s*\d|^python\s*=\s*[\"'][\^~>=<]*\d|python_version"
+        r"|^Depends:.*\bR\s*\(\s*>=|^julia\s*=\s*[\"']|^julia_version\s*="
+    )  # R's DESCRIPTION, Julia's [compat] and Manifest
     for f in dep_files + [f for f in repo.files if PurePosixPath(f).name.lower() in (".python-version", "runtime.txt", "dockerfile")]:
         text = repo.text(f) or ""
         if PurePosixPath(f).name.lower() in (".python-version", "runtime.txt") and text.strip():
@@ -373,6 +378,9 @@ def _scripts_in(command: str) -> list[tuple[str, bool]]:
     m = re.search(r"\s-m\s+([\w.]+)", command)
     if m:
         out.append((m.group(1).replace(".", "/"), True))
+    m = re.match(r"\s*(?:source|include)\(\s*[\"']([^\"']+)[\"']", command)
+    if m:
+        return [(m.group(1).removeprefix("./"), False)]
     for tok in command.split():
         tok = tok.strip("\"'`;,")
         if re.fullmatch(r"(\./)?[\w./\-]+\.(py|sh|ipynb|R|jl)", tok) and not tok.startswith(("http", "/")):
@@ -435,7 +443,7 @@ def _is_unit_test(repo: Repo, f: str) -> bool:
     """A unit test, not an experiment: in a tests/ folder, or named test_x.py and written for pytest or unittest
     (tools/test_net.py, which evaluates a model, is not one)."""
     parts = f.lower().split("/")
-    if any(p in ("tests", "unittests") for p in parts[:-1]):
+    if any(p in ("tests", "test", "unittests", "testthat") for p in parts[:-1]):  # test/ is Julia's and R's
         return True
     if parts[-1].startswith("test_") or parts[-1].endswith("_test.py"):
         return bool(re.search(r"^\s*(import pytest|import unittest|from unittest|def test_\w*\()", repo.text(f) or "", re.M))
@@ -495,7 +503,12 @@ MODEL_HOSTS = re.compile(
 DATA_HOSTS = re.compile(
     r"huggingface\.co/datasets/|kaggle\.com/(datasets|c|competitions)|zenodo\.org|figshare\.com|image-net\.org|cocodataset\.org|"
     r"archive\.ics\.uci\.edu|paperswithcode\.com/dataset|tensorflow\.org/datasets|physionet\.org|openml\.org|dataverse|osf\.io|"
-    r"data\.|/datasets?/"
+    r"//data\.|/datasets?/"
+)
+# links that are documentation or papers, not data, even next to the word "data"
+NOT_DATA = re.compile(
+    r"//docs\.|/docs?/|readthedocs|\.github\.io/|wikipedia\.org|arxiv\.org|doi\.org/|openreview\.net|aclanthology|"
+    r"github\.com/[\w\-.]+/[\w\-.]+/?(#.*)?$|shields\.io|badge|help\."
 )
 DATA_WORDS = re.compile(r"\b(data|dataset|datasets|corpus|corpora|benchmark|download|downloaded|split|splits)\b", re.I)
 DATA_LOADERS = re.compile(
@@ -512,10 +525,23 @@ def links(repo: Repo) -> list[tuple[str, int, str]]:
     return out
 
 
-def check_artifacts(repo: Repo) -> list[Item]:
+def artifact_links(repo: Repo) -> tuple[list[Evidence], list[Evidence]]:
+    """Every link to trained models, and every link to data, in the README and docs (the URL whole)."""
     found = links(repo)
     # a link to a model host or a weights file (a Drive or Zenodo link may hold data too: it counts for models)
-    models = [Evidence(p, i, u[:100]) for p, i, u in found if MODEL_HOSTS.search(u) and "huggingface.co/datasets/" not in u]
+    models = [Evidence(p, i, u) for p, i, u in found if MODEL_HOSTS.search(u) and "huggingface.co/datasets/" not in u]
+
+    def about_data(p: str, i: int) -> bool:  # a link on a line that speaks of data, or just after one
+        lines = (repo.text(p) or "").splitlines()
+        return 0 < i <= len(lines) and bool(DATA_WORDS.search(" ".join(lines[max(0, i - 2) : i])))
+
+    data = [Evidence(p, i, u) for p, i, u in found
+            if not NOT_DATA.search(u) and (DATA_HOSTS.search(u) or (not MODEL_HOSTS.search(u) and about_data(p, i)))]  # fmt: skip
+    return models, data
+
+
+def check_artifacts(repo: Repo) -> list[Item]:
+    models, data = artifact_links(repo)
     if not models:
         for f in [c for c in code_files(repo) if c.endswith((".py", ".ipynb"))][:400]:
             hits = lines_matching(repo.text(f) or "", HUB_ID)
@@ -526,12 +552,6 @@ def check_artifacts(repo: Repo) -> list[Item]:
     if not models:
         for f in [x for x in code_files(repo) if PurePosixPath(x).stem.lower().startswith(("download", "get_model", "fetch"))][:2]:
             models.append(Evidence(f, None, "a download script"))
-
-    def about_data(p: str, i: int) -> bool:  # a link on a line that speaks of data, or just after one
-        lines = (repo.text(p) or "").splitlines()
-        return 0 < i <= len(lines) and bool(DATA_WORDS.search(" ".join(lines[max(0, i - 2) : i])))
-
-    data = [Evidence(p, i, u[:100]) for p, i, u in found if DATA_HOSTS.search(u) or (not MODEL_HOSTS.search(u) and about_data(p, i))]
     scripts = [f for f in repo.files if re.search(r"(^|/)(download|get|fetch|prepare|preprocess|make)_?(data|dataset)s?[\w\-]*\.(sh|py)$", f, re.I)]
     data += [Evidence(f, None, "a data script") for f in scripts[:2]]
     if not data:  # a library that downloads the dataset itself

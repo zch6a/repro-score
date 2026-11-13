@@ -2,7 +2,7 @@
 
 ```bash
 uv sync
-uv run pytest -q          # made-up repositories only (in memory, or in a temporary folder); no network
+uv run pytest -q          # made-up repositories only; downloads and link checks are faked; no network
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 ```
 
@@ -14,6 +14,8 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy
 | `checks.py` | the checks: each returns items with points, evidence (file and line) and advice |
 | `report.py` | the score and the report as text, Markdown and JSON |
 | `badge.py` | the SVG badge |
+| `remote.py` | a GitHub repository downloaded as an archive to a temporary folder |
+| `links.py` | `--check-links`: whether model and data links answer |
 | `cli.py` | `repro-score` |
 | `action.yml` | the GitHub Action |
 

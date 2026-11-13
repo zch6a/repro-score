@@ -46,3 +46,34 @@ Tests: 39 (with doctests). ruff, ruff format, mypy clean.
 
 Next: polishing round 1 (`--check-links` to find dead model and data links, opt-in and rate-limited; scoring a list
 of repositories at once, for a venue's papers; a look at more real repositories, R and Julia among them).
+
+### 2026-11-13 — polishing round 1
+
+**Many repositories, and GitHub ones without cloning** (the plan's "a venue's papers' code"): `github:owner/repo[@ref]`
+and GitHub URLs are downloaded as archives (GitHub's public archive endpoint, no token, 300 MB cap, 3 s between
+downloads) into a temporary folder, extracted with tarfile's data filter, read and deleted. Several targets or
+`--list FILE` give a table, one row each with the sections' points, then the mean and median; text, CSV, Markdown,
+JSON. A repository that cannot be downloaded is reported in its row, not fatal.
+
+**`--check-links`**: every model and data link the docs give (not only the three shown as evidence), HEAD then a
+one-byte GET where HEAD is refused; ok, dead, unreachable, or unclear (401/403/405/429: sign-in pages, bot checks,
+rate limits). At most 40, a second apart per host. Dead links are listed beside the score, which does not count them,
+so a score is the same offline and online. Tried on DINO: 40 of its 70 links checked, all answer.
+
+**R and Julia**, tried on Seurat and DiffEqFlux.jl: their language versions (`Depends: R (>= …)`, `julia = …` in
+`[compat]`), install commands (`install.packages`, `remotes::install_github`, `BiocManager::install`, `Pkg.add`,
+`] add`), scripts (`source("run.R")`, `include("run.jl")`, checked to exist) are read now. **Found**: their `test/`
+folders (Julia's, R's `tests/testthat`) were not taken for tests, so a test's `Random.seed!` counted as the
+experiments' seed; documentation and paper links (docs.*, readthedocs, arXiv, DOIs) next to the word "data" counted as
+data links, and a `data.html` page matched the data-host pattern. Both libraries still score low, rightly for
+reproducing a paper; the README now says a library is not judged as a library.
+
+**Fifteen real repositories in one run** (the nine from development, and DINO, improved-diffusion, SimCLR,
+Detectron2, Seurat, DiffEqFlux.jl; scored from GitHub, nothing kept): scores 34–91, mean 64.3, median 64; the
+development fixes held (no score moved except where a fix applied).
+
+Tests: 49 (downloads and link checks faked: a tarball with a symbolic link and a `../` path, which are not
+extracted; statuses from a fake opener). ruff, ruff format, mypy clean.
+
+Next: polishing round 2 (an independent review of the checks; the Action tried in a real workflow on a repository
+of its own; the social card).

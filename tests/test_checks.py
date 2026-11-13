@@ -176,3 +176,29 @@ def test_the_score_leaves_out_what_does_not_apply() -> None:
     assert all(i.applies is False for i in r.items if i.section in ("notebooks", "randomness"))
     out_of = sum(i.max for i in r.items if i.applies)
     assert out_of == 85 and r.score == round(100 * sum(i.points for i in r.items if i.applies) / 85)
+
+
+def test_r_and_julia_repositories() -> None:
+    files = {
+        "DESCRIPTION": "Package: x\nDepends: R (>= 4.1.0)\nImports: ggplot2\n",
+        "renv.lock": "{}",
+        "README.md": "```r\nremotes::install_github('a/x')\nsource(\"analysis/run.R\")\n```\n" + "w " * 160,
+        "analysis/run.R": "set.seed(42)\n",
+        "tests/testthat/test-a.R": "set.seed(1)\n",
+    }
+    deps = items(check_dependencies, files)
+    assert deps["deps.pinned"].points == 7 and deps["deps.python"].evidence[0].path == "DESCRIPTION"
+    run = items(check_instructions, files)
+    assert run["run.install"].points == 5 and run["run.commands"].points == 6
+    assert items(check_randomness, files)["randomness.seed"].evidence[0].path == "analysis/run.R"
+    jl = {"Project.toml": "[compat]\njulia = \"1.10\"\n", "README.md": "```julia\nusing Pkg; Pkg.add(\"X\")\ninclude(\"scripts/missing.jl\")\n```\n" + "w " * 160,
+          "test/runtests.jl": "Random.seed!(1)\n", "src/X.jl": "x = 1\n"}  # fmt: skip
+    assert items(check_dependencies, jl)["deps.python"].points == 3
+    run = items(check_instructions, jl)
+    assert run["run.install"].points == 5 and "runs scripts/missing.jl, which is not in the repository" in str(run["run.commands"].evidence[0])
+    assert items(check_randomness, jl)["randomness.seed"].points == 0  # test/ is Julia's tests
+
+
+def test_documentation_links_are_not_data() -> None:
+    readme = "See the data docs at https://docs.example.org/data and https://x.readthedocs.io/en/data.html, the paper https://arxiv.org/abs/1.\n"
+    assert items(check_artifacts, {"README.md": readme})["artifacts.data"].points == 0

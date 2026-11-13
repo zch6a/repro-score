@@ -25,6 +25,7 @@ to reproduce someone else's.
 
 ```bash
 uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
+uvx --from git+https://github.com/zch6a/repro-score repro-score github:owner/repo     # without cloning it
 ```
 
 ```
@@ -89,6 +90,24 @@ That is the made-up repository in [examples/paper-code](examples/paper-code). `-
 `--markdown` gives a table (for a pull request or a job summary), `--json` the whole report, `--badge score.svg` a
 badge, and `--min-score 60` exits 1 below 60.
 
+## Many repositories at once
+
+```bash
+repro-score --list repos.txt --csv > scores.csv     # one per line: folders, github:owner/repo[@ref], GitHub URLs
+```
+
+One row each — the score and each section's points — then the mean and median: the reproducibility of a venue's
+code releases, a lab's repositories, or a reading list. A GitHub repository is downloaded as an archive to a
+temporary folder (300 MB at most, 3 seconds between downloads, no token), read, and deleted; one that cannot be
+downloaded is reported in its row. Text, `--csv`, `--markdown` or `--json`.
+
+## Dead links: `--check-links`
+
+The models and data links it counted are asked whether they still answer (HEAD, or a one-byte GET where HEAD is
+refused; at most 40 links, a second apart on the same host): each is ok, dead (a 404, 410 or 5xx), unreachable, or
+unclear (a sign-in page, a bot check, a rate limit). Dead links are listed beside the score, which does not count
+them, so the score stays the same offline.
+
 ## What it checks
 
 | Section | Points | What counts |
@@ -122,9 +141,13 @@ none of its code.
 ## Limits
 
 - It reads; it does not run. A README can name a script that exists and still fails; a link it counts can be dead
-  (links are not fetched). The score says what a repository gives a reader, not that its results reproduce.
-- It knows Python projects best. R, Julia and others get the dependency, README, licence and compute checks; their
-  seeds and lock files partly (`set.seed`, `renv.lock`, `Manifest.toml`).
+  unless you check them (`--check-links`). The score says what a repository gives a reader, not that its results
+  reproduce.
+- It is for a paper's code. A library (a package others build on) has no training run, results table or models to
+  release, and scores low on those items, rightly for reproducing a paper but not as a judgement of the library.
+- It knows Python projects best. R and Julia get their own dependency files and versions (`DESCRIPTION`,
+  `renv.lock`, `Project.toml`, `Manifest.toml`), install commands (`install.packages`, `Pkg.add`), scripts
+  (`source("run.R")`, `include("run.jl")`) and seeds (`set.seed`, `Random.seed!`); other languages, less.
 - Words decide some items (training and evaluation scripts by their names, data by the words near a link): a script
   called `run.py` that trains is not seen as training code unless the README's command says so.
 

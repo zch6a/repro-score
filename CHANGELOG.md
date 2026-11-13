@@ -10,3 +10,7 @@ First release.
   licence and citation, notebooks. Read from the files; nothing is run.
 - Text, Markdown (`--markdown`), JSON (`--json`), an SVG badge (`--badge`), `--min-score` for CI.
 - A GitHub Action: the report in the job summary, the score as an output.
+- `github:owner/repo[@ref]` and GitHub URLs, scored without cloning; several repositories, or `--list FILE`, give a
+  table (text, CSV, Markdown, JSON) with the mean and median.
+- `--check-links`: whether the model and data links still answer, listed beside the score.
+- R and Julia: dependency files and versions, install commands, scripts, seeds, `test/` folders.

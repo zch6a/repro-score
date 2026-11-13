@@ -18,6 +18,9 @@ uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
 - Offer to fix what can be fixed from the repository itself, and only with the user's go-ahead: pin the versions
   they ran (from their environment, not guessed), add the commands the README lacks, fix a command whose script does
   not exist, add a CITATION.cff from the paper's details. Do not invent results, links, hardware or licences: ask.
+- Someone else's repository: `repro-score github:owner/repo` (no clone needed); a list of them (a venue's code):
+  `repro-score --list repos.txt --csv`. `--check-links` also checks that model and data links still answer (it uses
+  the network: say so).
 - For CI, the GitHub Action: `uses: zch6a/repro-score@v0` with `min-score:`; `--badge docs/repro-score.svg` makes a
   badge for the README.
 - It does not run code or open links: a high score means the repository gives readers what they need, not that the
