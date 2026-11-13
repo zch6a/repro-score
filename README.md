@@ -19,9 +19,10 @@ anything.
 
 Papers with Code looked at more than 200 machine-learning repositories and wrote down what the reproducible ones have
 in common: the dependencies, the training code, the evaluation code, the trained models, and a README with the
-results and the commands that produce them (their ML Code Completeness Checklist). Conference checklists ask the
-same, and for the compute. repro-score checks a repository for all of it, before you release it or before you try
-to reproduce someone else's.
+results and the commands that produce them (their [ML Code Completeness
+Checklist](https://github.com/paperswithcode/releasing-research-code)). The NeurIPS paper checklist asks the same, and
+for the compute. repro-score checks a repository for all of it, before you release it or before you try to reproduce
+someone else's.
 
 ```bash
 uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
@@ -88,7 +89,8 @@ Notebooks: does not apply
 
 That is the made-up repository in [examples/paper-code](examples/paper-code). `--brief` leaves the evidence out,
 `--markdown` gives a table (for a pull request or a job summary), `--json` the whole report, `--badge score.svg` a
-badge, and `--min-score 60` exits 1 below 60.
+badge, and `--min-score 60` exits 1 below 60. In Python (`pip install git+https://github.com/zch6a/repro-score`):
+`repro_score.score_repo(Path("repo"))` returns the report, with `.score`, `.items` and `.json()`.
 
 ## Many repositories at once
 
@@ -98,8 +100,8 @@ repro-score --list repos.txt --csv > scores.csv     # one per line: folders, git
 
 One row each — the score and each section's points — then the mean and median: the reproducibility of a venue's
 code releases, a lab's repositories, or a reading list. A GitHub repository is downloaded as an archive to a
-temporary folder (300 MB at most, 2 GB unpacked, 3 seconds between downloads, no token), read, and deleted; one that cannot be
-downloaded is reported in its row. Text, `--csv`, `--markdown` or `--json`.
+temporary folder (300 MB at most, 2 GB unpacked, 3 seconds between downloads, no token), read, and deleted; one that
+cannot be downloaded is reported in its row. Text, `--csv`, `--markdown` or `--json`.
 
 ## Dead links: `--check-links`
 
@@ -128,8 +130,8 @@ code; pre-trained models; results with the commands); the compute is the NeurIPS
 ## In CI: a GitHub Action
 
 ```yaml
-- uses: actions/checkout@v4
-- uses: zch6a/repro-score@v0
+- uses: actions/checkout@v7
+- uses: zch6a/repro-score@v0    # or a release tag (v0.1.0), or a commit, to pin it
   with:
     min-score: 60          # optional: fail under 60
     badge: docs/repro-score.svg   # optional

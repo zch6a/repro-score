@@ -160,3 +160,23 @@ Tests: 80. ruff, ruff format, mypy clean.
 
 Next: polishing round 5 (a last pass against the "polish" definition, docs read through; then v0.1.0, and the Action
 used by its tag from another repository's workflow).
+### 2026-11-14 — polishing round 5, and v0.1.0
+
+**Docs read through, end to end** (README in both languages, CONTRIBUTING, SECURITY, CHANGELOG, the skill):
+
+- The checklist the scores follow is now linked (Papers with Code's releasing-research-code repository), and "conference
+  checklists" names the NeurIPS paper checklist.
+- The Python API (`score_repo`) and its install line were not in the README: added.
+- The Action example used `actions/checkout@v4`; our own workflows pin v7: the example says v7, and that the action
+  can be pinned to a release tag or a commit.
+- The CHANGELOG was a list of rounds: rewritten as release notes.
+
+**Fuzzing** (security): 3 × 2,000 random repositories in memory, built from mutated READMEs (fences, prompts, `cd`
+chains, tables, links), dependency files, notebooks, licences and code, with NULs, BOMs, stray bytes and 3,000-space
+runs; through every check, the text, Markdown, JSON and CSV outputs. No exception, nothing slower than 2 s (the round
+2 fixes for long lines and odd notebooks held).
+
+Tests: 80. ruff, ruff format, mypy clean.
+
+**v0.1.0**: tagged after this round's CI passed (annotated tag); the release workflow builds, tests, attaches the
+wheel and source archive, and moves `v0`. CI then uses the Action by its tag, as another repository would.
