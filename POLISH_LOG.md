@@ -193,3 +193,30 @@ Released as 0.1.1 so that `v0`, which the marketplace installs from, carries the
 
 Both READMEs now end (before the licence) with a short section pointing to research-kit, the toolkit's front door: all
 thirteen tools in the order of the work, and one Claude Code plugin marketplace for their skills. Documentation only.
+
+### 2026-11-14 — 0.2.0: repro-score release
+
+Chosen from research-kit's list of needs nothing covers: "one release step that keeps the code tag, weights, dataset,
+citation file and DOI in step" (each tool covers one artefact). This is the checking half: every place a version,
+date or DOI is written, compared.
+
+First run on this toolkit's own repositories: four (arxiv-diff, submit-check, paper-proof, fig-check) had released
+0.2.x with `plugin/.claude-plugin/plugin.json` still at the old version. Each got a patch release with the manifest
+fixed and a CITATION.cff.
+
+Then 12 well-known research repositories (zips from GitHub, tags from its API written as a packed-refs file for the
+measurement, all deleted after). First run: 10 disagreements. Read one by one:
+- sub-packages' own manifests compared with the package (OLMo's `hf_olmo/pyproject.toml` 0.0.1, Flax's
+  `flaxlib_src`, PyG's `benchmark/setup.py`): only top-level manifests now;
+- development versions after the last tag (Accelerate 1.16.0.dev0 after v1.15.0, PEFT, lm-evaluation-harness): noted;
+- xFormers' old tag `v0.03` sorted above `v0.0.37`: only tags of the usual shape count;
+- Zenodo badge URLs taken for DOIs (lm-evaluation-harness, open_clip): only `10.5281/zenodo.N`;
+- OLMo's CHANGELOG 0.6.1 and xFormers' 0.0.37 ahead of their newest tags, every file agreeing: a release written down
+  but not tagged, now a note.
+Left: 5, all real (Ultralytics' CITATION.cff 8.0.0 at 8.4.212; open_clip's v0.1 at 4.2.2 and its HISTORY at 4.2.1;
+LitGPT's pyproject.toml 0.5.13 with a v0.5.14 tag; PyG's CHANGELOG at 2.8.0 with a 2.8.1 tag; Flax's CHANGELOG stopping
+at 0.8.2, checked in the file).
+
+4 tests on repositories written to a temporary folder (everything in step with an rc tag and a sub-package; drift with
+its file and line and a DOI only in the README; development versions, an untagged release, an odd old tag; a
+CITATION.cff missing its required fields).

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — 2026-11-14
+
+- **`repro-score release [FOLDER]`**: do the places that state a release agree? The package's version (top-level
+  manifests, `__version__`), a plugin's `plugin.json`, CITATION.cff (and its required fields), .zenodo.json,
+  codemeta.json, the newest CHANGELOG entry, a model card, Zenodo DOIs in the README, and the newest version tag (read
+  from `.git` without running git). Development versions are noted, not compared; a release written down but not
+  tagged is noted. Exit 1 on a disagreement; `--json`.
+- Measured on 12 well-known research repositories: 5 real disagreements found (stale CITATION.cff versions, a
+  CHANGELOG behind its tags, a pyproject.toml behind its tag), none false after the fixes the measurement prompted.
+
 ## 0.1.1 — 2026-11-14
 
 - The agent skill's frontmatter is valid YAML again: its description held a `: `, which YAML reads as a new key, so
