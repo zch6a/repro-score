@@ -6,6 +6,7 @@ repro-score github:owner/repo        a GitHub repository (downloaded to a tempor
 repro-score a b github:c/d           several: a table, one row each
 repro-score --list repos.txt         the repositories listed in a file, one per line (a venue's papers' code)
 repro-score . --min-score 60         exit 1 below 60 (for CI)
+repro-score release .                do the version, the tags, CITATION.cff, the DOIs agree? (exit 1 if not)
 
 It reads the files and runs nothing: dependencies and their versions, install and run instructions, training and
 evaluation code, links to trained models and data, random seeds, the hardware stated, licence and citation, and
@@ -29,10 +30,35 @@ from .report import Report, Table, score_repo
 DOWNLOAD_PAUSE = 3.0  # seconds between two downloads from GitHub
 
 
+def release_main(argv: list[str]) -> int:
+    from .release import __doc__ as release_doc_text
+    from .release import check
+    from .repo import Repo
+
+    def release_doc() -> str | None:
+        return release_doc_text
+
+    ap = argparse.ArgumentParser(prog="repro-score release", description=release_doc(),
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)  # fmt: skip
+    ap.add_argument("folder", nargs="?", default=".", help="the repository's folder (default: here)")
+    ap.add_argument("--json", action="store_true", help="the values and problems as JSON")
+    args = ap.parse_args(argv)
+    root = Path(args.folder)
+    if not root.is_dir():
+        print(f"repro-score: {root}: not a folder", file=sys.stderr)
+        return 2
+    report = check(Repo.read(root), root.resolve().name)
+    print(json.dumps(report.json(), indent=2, ensure_ascii=False) if args.json else report.text())
+    return 0 if report.ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
+    given = sys.argv[1:] if argv is None else argv
+    if given[:1] == ["release"] and not Path("release").is_dir():
+        return release_main(given[1:])
     ap = argparse.ArgumentParser(prog="repro-score", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="exit status: 0 scored (and at least --min-score), 1 under --min-score, 2 it could not run")  # fmt: skip
     ap.add_argument("targets", nargs="*", help="repository folders, or github:owner/repo[@ref] or GitHub URLs (default: the current folder)")

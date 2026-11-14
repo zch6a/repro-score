@@ -27,6 +27,32 @@ uvx --from git+https://github.com/zch6a/repro-score repro-score path/to/repo
 `repro-score --list repos.txt --csv` 一次检查一批仓库（每行一个：本地目录、github:owner/repo 或 GitHub 网址），每个仓库一行分项得分，并给出均值与中位数，可用来统计一个会议的论文代码。
 `--check-links` 检查模型与数据链接是否仍可访问（最多 40 个，同一站点间隔 1 秒），失效链接列在分数旁边，不计入分数。
 
+## 发布之前：`repro-score release`
+
+一次发布的版本号会写在很多地方，而且会慢慢对不上：标签是 v1.2.0，CITATION.cff 还写着 1.1.0，README 里有 Zenodo 的 DOI 而 CITATION.cff 里没有。`repro-score release` 把这些地方都读一遍，列出每个值所在的文件和行，并指出哪里不一致（有不一致时退出码为 1）：
+
+```console
+$ repro-score release .
+repro-score release: open_clip
+  version:
+    4.2.2                    src/open_clip/version.py:1  (__version__)
+    v0.1                     CITATION.cff:31  (CITATION.cff version)
+    4.2.1                    HISTORY.md:1  (CHANGELOG newest)
+    v4.2.2                   .git  (newest of 59 version tag(s))
+  date:
+    2021-07-28               CITATION.cff:33  (CITATION.cff date-released)
+  doi:
+    10.5281/zenodo.5143773   CITATION.cff:32  (CITATION.cff)
+    10.5281/zenodo.5143773   README.md:690  (README (Zenodo))
+
+  ✗ the version is not the same everywhere: 4.2.2 in src/open_clip/version.py, .git; but v0.1 in CITATION.cff:31 (CITATION.cff version); 4.2.1 in HISTORY.md:1 (CHANGELOG newest)
+  · CITATION.cff's date-released (2021-07-28) is probably for its own version, not the newest tag v4.2.2
+```
+
+以上是 open_clip 在 2026-11-14 的情况。读取的位置：软件包的版本（顶层的 `pyproject.toml`、`setup.py`、`setup.cfg`、`package.json`，以及 `__version__`）、智能体插件的 `plugin.json`、`CITATION.cff`（version、date-released、doi，以及格式要求的字段）、`.zenodo.json`、`codemeta.json`、CHANGELOG 最新的条目（跳过 “Unreleased”）、模型卡里的版本、README 里的 Zenodo DOI，以及最新的版本标签（直接读 `.git/refs/tags` 和 `.git/packed-refs`，不运行 git，不含预发布版本）。开发版本（`v1.15.0` 之后的 `1.16.0.dev0`）只提示、不参与比较；所有文件一致且比最新标签新时，提示这次发布还没打标签。
+
+在 12 个知名科研代码仓库上实测（PEFT、TRL、Accelerate、lm-evaluation-harness、LitGPT、open_clip、Ultralytics、OLMo、DSPy、PyG、Flax、xFormers；代码取自 GitHub，标签取自 GitHub API）：7 个一致（其中 2 个有已写好但还没打标签的发布），5 个不一致，都是真的：Ultralytics 的 CITATION.cff 在 8.4.212 时还写着 8.0.0，open_clip 的在 4.2.2 时写着 v0.1，LitGPT 的 pyproject.toml 比标签落后一个版本，PyG 打了 2.8.1 的标签但 CHANGELOG 里没有这一条，Flax 的 CHANGELOG 停在 0.8.2。第一版还把子包自己的版本文件（`benchmark/setup.py`）、开发版本、一个格式特殊的旧标签（`v0.0.37` 中间的 `v0.03`）和 Zenodo 徽章链接拿来比较，都已修正。在本工具集自己的仓库上，它发现有四个仓库的 Claude Code `plugin.json` 还停在上一个版本。
+
 ## 检查什么
 
 - **依赖（20）**：依赖文件（只在 README 的 `pip install` 里列出的包算一部分）、版本是否锁定（锁文件，或 80% 以上用 `==`）、Python 版本、Dockerfile 或 conda 环境。

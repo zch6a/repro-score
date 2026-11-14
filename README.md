@@ -110,6 +110,46 @@ refused; at most 40 links, a second apart on the same host): each is ok, dead (a
 unclear (a sign-in page, a bot check, a rate limit). Dead links are listed beside the score, which does not count
 them, so the score stays the same offline.
 
+## Before a release: `repro-score release`
+
+A release is written down in many places, and they drift: the tag says v1.2.0, CITATION.cff still says 1.1.0, the
+README shows a Zenodo DOI that CITATION.cff does not have. `repro-score release` reads them all and says what
+disagrees, each value with its file and line (exit 1 when something does):
+
+```console
+$ repro-score release .
+repro-score release: open_clip
+  version:
+    4.2.2                    src/open_clip/version.py:1  (__version__)
+    v0.1                     CITATION.cff:31  (CITATION.cff version)
+    4.2.1                    HISTORY.md:1  (CHANGELOG newest)
+    v4.2.2                   .git  (newest of 59 version tag(s))
+  date:
+    2021-07-28               CITATION.cff:33  (CITATION.cff date-released)
+  doi:
+    10.5281/zenodo.5143773   CITATION.cff:32  (CITATION.cff)
+    10.5281/zenodo.5143773   README.md:690  (README (Zenodo))
+
+  ✗ the version is not the same everywhere: 4.2.2 in src/open_clip/version.py, .git; but v0.1 in CITATION.cff:31 (CITATION.cff version); 4.2.1 in HISTORY.md:1 (CHANGELOG newest)
+  · CITATION.cff's date-released (2021-07-28) is probably for its own version, not the newest tag v4.2.2
+```
+
+That is open_clip as it was on 2026-11-14. What it reads: the package's version (`pyproject.toml`, `setup.py`,
+`setup.cfg`, `package.json` at the top; `__version__`), an agent plugin's `plugin.json`, `CITATION.cff` (version,
+date-released, doi, and the fields the format requires), `.zenodo.json`, `codemeta.json`, the newest CHANGELOG entry
+(an "Unreleased" one is skipped), a model card's version, Zenodo DOIs in the README, and the newest version tag (from
+`.git/refs/tags` and `.git/packed-refs`, without running git; pre-releases left out). A development version
+(`1.16.0.dev0` after `v1.15.0`) is noted, not compared; when every file agrees on a version newer than the last tag,
+the release is noted as not tagged yet.
+
+Measured on 12 well-known research repositories (PEFT, TRL, Accelerate, lm-evaluation-harness, LitGPT, open_clip,
+Ultralytics, OLMo, DSPy, PyG, Flax, xFormers; the code as GitHub serves it, the tags from GitHub's API): 7 agree (2 of
+them with a release written down but not tagged), and the 5 disagreements are real: Ultralytics' CITATION.cff says
+8.0.0 at 8.4.212, open_clip's says v0.1 at 4.2.2, LitGPT's pyproject.toml is one behind its tag, PyG tagged 2.8.1 with
+no CHANGELOG entry, Flax's CHANGELOG stops at 0.8.2. The first version also compared sub-packages' own manifests
+(`benchmark/setup.py`), development versions, an odd old tag (`v0.03` among `v0.0.37`) and Zenodo badge URLs; fixed.
+On this toolkit's own repositories it found four whose Claude Code `plugin.json` had stayed at the previous version.
+
 ## What it checks
 
 | Section | Points | What counts |
